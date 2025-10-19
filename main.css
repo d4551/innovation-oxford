@@ -1146,7 +1146,7 @@ a,
 .mail-window .mail-list-item .from { font-weight: bold; font-size: 12px; }
 .mail-window .mail-list-item .subject { font-size: 12px; }
 .mail-window .mail-list-item .date { font-size: 11px; color: #404040 !important; text-align: right; }
-.mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: visible; border: 1px solid #808080; background: #ffffff; }
+.mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: visible; border: 1px solid #808080; background: #ffffff; position: relative; z-index: 2; }
 .mail-window .mail-reader-header { padding: 6px; border-bottom: 1px solid #808080; background: #cfcfcf; }
 .mail-window .mail-reader-header .hdr-row { font-size: 12px; }
 .mail-window .mail-reader-header .lbl { display: inline-block; width: 56px; color: #202020 !important; }
@@ -1909,16 +1909,17 @@ a,
 }
 .retro-ad { border: 2px solid #000080; background: #ffffff; }
 .retro-ad .ad-banner { background: linear-gradient(90deg, #ff0066, #ffcc00, #00ccff); color: #000; font-weight: 900; text-align: center; padding: 6px 8px; border-bottom: 2px solid #000080; letter-spacing: 0.5px; }
-.retro-ad .ad-body { padding: 10px; }
+.retro-ad .message-body { padding: 10px; overflow-wrap: break-word; }
+.retro-ad .ad-body { padding: 10px; overflow-wrap: break-word; }
 .retro-ad .ad-head { margin: 4px 0; font-size: 18px; color: #000080; }
 .retro-ad .ad-sub { margin: 0 0 8px; font-size: 14px; color: #333; }
 .retro-ad .ad-mark { background: #000080; color: #fff; padding: 0 4px; }
 .retro-ad .ad-bullets { margin: 8px 0 8px 18px; }
-.retro-ad .ad-hero { text-align: center; margin: 10px 0; }
-.retro-ad .ad-hero-img { display: inline-block; max-width: 360px; width: 100%; height: auto; border: 1px solid #808080; background: #fff; }
-.retro-ad .ad-hero-img.retro-jpeg, .retro-ad .ad-hero-img.retro-asset { image-rendering: pixelated; filter: contrast(1.05) saturate(1.1) brightness(0.98) blur(0.35px); }
-.retro-ad.vboy .ad-hero { position: relative; }
-.retro-ad.vboy .ad-hero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background:
+.retro-ad .message-hero { text-align: center; margin: 10px 0; }
+.retro-ad .message-hero-img { display: inline-block; max-width: 360px; width: 100%; height: auto; border: 1px solid #808080; background: #fff; }
+.retro-ad .message-hero-img.retro-jpeg, .retro-ad .message-hero-img.retro-asset { image-rendering: pixelated; filter: contrast(1.05) saturate(1.1) brightness(0.98) blur(0.35px); }
+.retro-ad.vboy .message-hero { position: relative; }
+.retro-ad.vboy .message-hero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background:
   repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0, rgba(0,0,0,0.06) 1px, transparent 2px, transparent 3px),
   repeating-linear-gradient(90deg, rgba(0,0,0,0.03) 0, rgba(0,0,0,0.03) 1px, transparent 2px, transparent 3px);
 }

@@ -445,7 +445,7 @@ class MailManager {
     return `
       <div class="retro-ad vboy">
         <div class="ad-banner">NINTENDO POWER ALERT</div>
-        <div class="ad-body">
+        <div class="message-body">
           <h1 class="ad-head">SEE RED. FEEL 3‑D. GET HYPED.</h1>
           <h2 class="ad-sub">Introducing the <span class="ad-mark">VIRTUAL BOY™</span></h2>
           <p>Strap in, hotshot. This is stereoscopic, stand‑up, head‑spinning <strong>3‑D</strong> from the crew that brought you pure fun in cartridge form. No glasses. No mercy. Just radical depth that jumps like a skateboard off a handrail.</p>
@@ -454,8 +454,8 @@ class MailManager {
             <li>Plug‑and‑play setup—drop in, zone out</li>
             <li>Exclusive launch titles built for 3‑D speed</li>
           </ul>
-          <div class="ad-hero">
-            <img class="ad-hero-img retro-asset" src="media/virtualboy.png" width="360" loading="lazy" decoding="async" alt="Nintendo Virtual Boy console on stand with controller" />
+          <div class="message-hero">
+            <img class="message-hero-img retro-asset" src="media/virtualboy.png" width="360" loading="lazy" decoding="async" alt="Nintendo Virtual Boy console on stand with controller" />
           </div>
           <p class="ad-copy">Power up. Dial your senses to eleven. <em>Virtual Boy</em> doesn’t just play games— it <strong>warps reality</strong>. Are you game enough?</p>
           <div class="ad-cta">Power Up Today</div>
@@ -468,14 +468,14 @@ class MailManager {
   // DRY builder for retro ad markup
   buildAd({ banner, head, sub, body, bullets = [], heroSrc, heroAlt, cta, fine }) {
     const bulletsHtml = bullets && bullets.length ? `<ul class="ad-bullets">${bullets.map(b => `<li>${this.escapeInline(b)}</li>`).join('')}</ul>` : '';
-    const heroHtml = heroSrc ? `<div class="ad-hero"><img class="ad-hero-img" src="${this.escapeAttr(heroSrc)}" alt="${this.escapeAttr(heroAlt || '')}"></div>` : '';
+    const heroHtml = heroSrc ? `<div class="message-hero"><img class="message-hero-img" src="${this.escapeAttr(heroSrc)}" alt="${this.escapeAttr(heroAlt || '')}"></div>` : '';
     const bodyHtml = body ? (body.startsWith('<') ? body : `<p>${this.escapeInline(body)}</p>`) : '';
     const ctaHtml = cta ? `<div class="ad-cta">${this.escapeInline(cta)}</div>` : '';
     const fineHtml = fine ? `<p class="ad-fine">${this.escapeInline(fine)}</p>` : '';
     return `
       <div class="retro-ad">
         ${banner ? `<div class="ad-banner">${this.escapeInline(banner)}</div>` : ''}
-        <div class="ad-body">
+        <div class="message-body">
           ${head ? `<h1 class="ad-head">${this.escapeInline(head)}</h1>` : ''}
           ${sub ? `<h2 class="ad-sub">${this.escapeInline(sub)}</h2>` : ''}
           ${bodyHtml}
