@@ -1132,7 +1132,7 @@ a,
 .mail-window .mail-scrollable::-webkit-scrollbar-track { background: #e4e4e4; border: 1px solid #808080; }
 .mail-window .mail-scrollable::-webkit-scrollbar-thumb { background: #a0a0a0; border: 1px solid #606060; }
 .mail-window .mail-scrollable::-webkit-scrollbar-thumb:hover { background: #8a8a8a; }
-.mail-window .mail-list { grid-area: list; background: #ffffff; border: 1px solid #808080; box-sizing: border-box; min-height: 0; }
+.mail-window .mail-list { grid-area: list; background: #ffffff; border: 1px solid #808080; box-sizing: border-box; min-height: 0; overflow: auto; }
 .mail-window .mail-list-header { grid-area: list-header; padding: 4px 6px; background: #cfcfcf; border: 1px solid #808080; border-bottom: none; font-weight: 700; font-size: 12px; z-index: 1; }
 .mail-window .mail-list-header .sortable { cursor: pointer; }
 .mail-window .mail-list-header .sorted-asc::after { content: ' \25B2'; font-size: 10px; }
@@ -1146,7 +1146,7 @@ a,
 .mail-window .mail-list-item .from { font-weight: bold; font-size: 12px; }
 .mail-window .mail-list-item .subject { font-size: 12px; }
 .mail-window .mail-list-item .date { font-size: 11px; color: #404040 !important; text-align: right; }
-.mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #808080; background: #ffffff; }
+.mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: visible; border: 1px solid #808080; background: #ffffff; }
 .mail-window .mail-reader-header { padding: 6px; border-bottom: 1px solid #808080; background: #cfcfcf; }
 .mail-window .mail-reader-header .hdr-row { font-size: 12px; }
 .mail-window .mail-reader-header .lbl { display: inline-block; width: 56px; color: #202020 !important; }
@@ -1157,6 +1157,9 @@ a,
   flex: 1 1 auto;
   box-sizing: border-box;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
 }
 .mail-window .mail-reader-body img { max-width: 100%; height: auto; }
 
