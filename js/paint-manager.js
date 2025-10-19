@@ -255,7 +255,21 @@ class PaintManager {
   }
   toggleFromTaskbar() { if (!this.windowEl) { this.open(); return; } const hidden = this.windowEl.style.display === 'none'; if (hidden) { this.windowEl.style.display = 'block'; this.activate(); } else { this.minimize(); } }
   activate() { if (!this.windowEl) return; this.windowEl.style.zIndex = ++windowManager.zIndexCounter; if (window.taskbarManager) window.taskbarManager.setActive(this.taskbarId, true); }
-  close() { if (!this.windowEl) return; windowManager.closeWindow(this.windowEl); this.windowEl = null; }
+  close() {
+    if (!this.windowEl) return;
+    // Close the window shell
+    windowManager.closeWindow(this.windowEl);
+    this.windowEl = null;
+    this.bodyEl = null;
+    this.canvasWrap = null;
+    this.baseImgEl = null;
+    this.drawCanvas = null;
+    this.drawCtx = null;
+    // Remove taskbar button so it doesn't linger
+    if (window.taskbarManager) {
+      window.taskbarManager.remove(this.taskbarId);
+    }
+  }
 }
 
 // Global in main.js
