@@ -367,7 +367,20 @@ class MailManager {
     this.listEl?.querySelectorAll('.mail-list-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
     const setHdr = (k, v) => { const el = this.bodyEl?.querySelector(`[data-hdr="${k}"]`); if (el) el.textContent = v; };
     setHdr('from', msg.from); setHdr('subject', msg.subject); setHdr('date', msg.date);
-    if (this.readerEl) { this.readerEl.innerHTML = msg.html; this.readerEl.scrollTop = 0; }
+    // Ensure reader reference and load content with a safe fallback
+    if (!this.readerEl && this.bodyEl) this.readerEl = this.bodyEl.querySelector('.mail-reader-body');
+    if (this.readerEl) {
+      const html = (msg && typeof msg.html === 'string' && msg.html.trim().length)
+        ? msg.html
+        : this.buildAd({
+            banner: 'MESSAGE',
+            head: msg.subject || '(no subject)',
+            sub: `From: ${this.escapeInline(msg.from || 'unknown')}`,
+            body: (msg.preview ? `<p>${this.escapeInline(msg.preview)}</p>` : '<p>(No content)</p>')
+          });
+      this.readerEl.innerHTML = html;
+      this.readerEl.scrollTop = 0;
+    }
     this.currentId = id;
     if (!msg.read) {
       msg.read = true;
