@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oxford Messenger</title>
+    <link rel="stylesheet" href="main.css">
+    
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <link rel="stylesheet" href="vendor/jsdos/js-dos.css">
+    
+    <!-- Howler.js for sound effects -->
+    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+    
+    <!-- xterm.js for terminal emulator -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    
+    <!-- Application modules -->
+    <script src="js/audio-manager.js"></script>
+    <script src="js/window-manager.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/chat-manager.js"></script>
+    <script src="js/mail-manager.js"></script>
+    <script src="js/terminal-manager.js"></script>
+    <script src="js/msdos-manager.js"></script>
+    <script src="js/dialup-intro.js"></script>
+    <script src="js/taskbar-manager.js"></script>
+    <script src="js/clipart.js"></script>
+    <script src="js/slides-data.js"></script>
+    <script src="js/media-player-manager.js"></script>
+    <script src="js/ie-manager.js"></script>
+    <script src="js/paint-manager.js"></script>
+    <script src="js/folder-manager.js"></script>
+    <script src="js/channels-manager.js"></script>
+    <script src="js/start-menu.js"></script>
+    <script src="js/desktop-icons.js"></script>
+    
+    <!-- Main application coordinator -->
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <!-- Fake Login handled by dialup-intro.js (shown on load) -->
+    
+    <div class="screen-overlay"></div>
+    <div class="scanline"></div>
+    
+    <div class="desktop hidden">
+        <!-- Buddy List Window -->
+        <div class="window buddy-list">
+            <div class="title-bar">
+                <div class="title-bar-text">
+                    <div class="title-bar-icon"></div>
+                    Buddy List
+                </div>
+                <div class="title-bar-controls">
+                    <button class="title-bar-btn">_</button>
+                    <button class="title-bar-btn">□</button>
+                    <button class="title-bar-btn">X</button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="aim-logo">
+                    <div class="aim-logo-text">OXFORD</div>
+                    <div style="font-size: 9px; color: #000;">Instant Messenger</div>
+                </div>
+                
+                <div class="buddy-group">
+                    <div class="buddy-group-header">▼ Online (4)</div>
+                    <div class="buddy-list-items">
+                        <div class="buddy-item" onclick="openChat('Sepinator')">
+                            <div class="status-icon"></div>
+                            Sepinator
+                        </div>
+                        <div class="buddy-item" onclick="openChat('xMarkTheNeil99x')">
+                            <div class="status-icon"></div>
+                            xMarkTheNeil99x
+                        </div>
+                        <div class="buddy-item" onclick="openChat('SelvaTron')">
+                            <div class="status-icon"></div>
+                            SelvaTron
+                        </div>
+                        <div class="buddy-item" onclick="openChat('RandoBrando')">
+                            <div class="status-icon status-away"></div>
+                            RandoBrando
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="buddy-group">
+                    <div class="buddy-group-header">▼ Offline (9)</div>
+                    <div class="buddy-list-items">
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            RetroGamer
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            Y2KPrincess
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            Douglas_SpiderManFan88
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            NicholasDaPokeCEO
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            josh95mx
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            VinoTheWiz
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            RachelZStarrrrr
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            Michael_Dad_Rock
+                        </div>
+                        <div class="buddy-item" style="color: #808080;">
+                            <div class="status-icon" style="background: #808080;"></div>
+                            LordEmperorElliot
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Window -->
+        <div class="window chat-window">
+            <div class="title-bar">
+                <div class="title-bar-text">
+                    <div class="title-bar-icon"></div>
+                    Instant Message from <span id="chatWith">Sepinator</span>
+                </div>
+                <div class="title-bar-controls">
+                    <button class="title-bar-btn">_</button>
+                    <button class="title-bar-btn">□</button>
+                    <button class="title-bar-btn">X</button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="chat-header">
+                    To: <strong id="chatToUser">Sepinator</strong>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message">
+                        <span class="message-sender">Sepinator:</span>
+                        <span class="message-time">(3:47:23 PM)</span>
+                        <div>hey whats up! u there?</div>
+                    </div>
+                    <div class="message">
+                        <span class="message-sender" style="color: #0000ff;">You:</span>
+                        <span class="message-time">(3:47:45 PM)</span>
+                        <div>yeah just chillin, listening to some CDs</div>
+                    </div>
+                    <div class="message">
+                        <span class="message-sender">Sepinator:</span>
+                        <span class="message-time">(3:48:12 PM)</span>
+                        <div>cool cool. wanna play some starcraft later?</div>
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="Type your message here..." />
+                    <button class="btn-95" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Taskbar -->
+    <div class="taskbar">
+        <button class="start-btn">
+            <div class="windows-logo"></div>
+            Start
+        </button>
+        <button class="btn-95" onclick="createTerminalWindow()" style="margin-left: 4px; height: 22px; padding: 2px 6px;">
+            MS-DOS
+        </button>
+        <div class="taskbar-windows"></div>
+        <div class="time-display" id="timeDisplay">3:48 PM</div>
+    </div>
+</body>
+</html>
