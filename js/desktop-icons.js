@@ -1,185 +1,77 @@
 // ============================================
 // DESKTOP ICONS MANAGER
-// Renders desktop icons and handles double-click to launch apps
+// Renders the desktop icon grid. Icons open on double-click with a pointer and
+// on a single tap on touch devices, where double-tap belongs to the platform.
 // ============================================
 
 class DesktopIconsManager {
-  constructor({ ieManager, channelsManager, mailManager, folderManager, mediaPlayerManager, paintManager } = {}) {
-    this.ieManager = ieManager;
-    this.channelsManager = channelsManager;
-    this.mailManager = mailManager;
-    this.folderManager = folderManager;
-    this.mediaPlayerManager = mediaPlayerManager || null;
-    this.paintManager = paintManager || null;
+  constructor(managers = {}) {
+    this.managers = managers;
     this.container = null;
-    this.icons = [];
+    this.icons = [
+      { id: 'homework', label: 'Homework', iconClass: 'folder-icon', open: () => this.managers.folderManager?.openHomework() },
+      { id: 'internet-explorer', label: 'Internet Explorer', iconClass: 'ie-icon', open: () => this.managers.ieManager?.open() },
+      { id: 'oxford-mail', label: 'Oxford Mail', iconClass: 'mail-icon', open: () => this.managers.mailManager?.open() },
+      { id: 'paint', label: 'Oxford Paint', iconClass: 'paint-icon', open: () => this.managers.paintManager?.open() },
+      { id: 'channels', label: 'Oxford Channels', iconClass: 'channels-icon', open: () => this.managers.channelsManager?.open() },
+      { id: 'aim', label: 'Oxford Messenger', iconClass: 'aim-icon', open: () => this.managers.chatManager?.toggleFromTaskbar() },
+      { id: 'media-player', label: 'OxfordInnovation.mp4', iconClass: 'media-icon', open: () => this.managers.mediaPlayerManager?.openOxfordInnovation({ gesture: true }) },
+    ];
   }
 
   init() {
     const desktop = document.querySelector('.desktop');
     if (!desktop) return;
 
-    // Create container
-    this.container = document.createElement('div');
+    this.container = document.createElement('ul');
     this.container.className = 'desktop-icons';
+    this.container.setAttribute('aria-label', 'Desktop shortcuts');
     desktop.appendChild(this.container);
+    this.render();
 
-    // Define icons
-    this.icons = [
-      {
-        id: 'homework',
-        label: 'Homework',
-        iconClass: 'folder-icon',
-        onOpen: () => this.openHomework()
-      },
-      {
-        id: 'internet-explorer',
-        label: 'Internet Explorer',
-        iconClass: 'ie-icon',
-        onOpen: () => this.openInternetExplorer()
-      },
-      {
-        id: 'oxford-mail',
-        label: 'Oxford Mail',
-        iconClass: 'mail-icon',
-        onOpen: () => this.openMail()
-      },
-      {
-        id: 'paint',
-        label: 'Oxford Paint',
-        iconClass: 'paint-icon',
-        onOpen: () => this.openPaint()
-      },
-      {
-        id: 'channels',
-        label: 'Oxford Channels',
-        iconClass: 'channels-icon',
-        onOpen: () => this.openChannels()
-      },
-      {
-        id: 'aim',
-        label: 'Oxford Messenger',
-        iconClass: 'aim-icon',
-        onOpen: () => this.openAIM()
-      },
-      {
-        id: 'media-player',
-        label: 'OxfordInnovation.mp4',
-        iconClass: 'media-icon',
-        onOpen: () => this.openMediaPlayer()
-      }
-    ];
-
-    this.renderIcons();
-  }
-
-  renderIcons() {
-    this.container.innerHTML = '';
-    this.icons.forEach((cfg, idx) => {
-      const item = document.createElement('div');
-      item.className = 'desktop-icon';
-      item.setAttribute('data-id', cfg.id);
-      item.setAttribute('tabindex', '0');
-      item.setAttribute('role', 'button');
-      item.setAttribute('aria-label', cfg.label);
-
-      // Icon glyph + label
-      item.innerHTML = `
-        <div class="icon ${cfg.iconClass}"></div>
-        <div class="label">${cfg.label}</div>
-      `;
-
-      // Click to select, double-click to open
-      const openFn = () => {
-        this.clearSelection();
-        item.classList.add('selected');
-        const icon = this.icons.find(i => i.id === cfg.id);
-        if (icon && typeof icon.onOpen === 'function') icon.onOpen();
-      };
-
-      item.addEventListener('click', (e) => {
-        this.clearSelection();
-        item.classList.add('selected');
-        item.focus();
-      });
-      item.addEventListener('dblclick', (e) => {
+    Utils.on(this.container, 'click', '.desktop-icon', (e) => {
+      this.select(e.currentTarget);
+      if (Utils.isTouch()) this.launch(e.currentTarget.dataset.id);
+    });
+    Utils.on(this.container, 'dblclick', '.desktop-icon', (e) => {
+      e.preventDefault();
+      this.launch(e.currentTarget.dataset.id);
+    });
+    Utils.on(this.container, 'keydown', '.desktop-icon', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        openFn();
-      });
-      item.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openFn();
-        }
-      });
-
-      this.container.appendChild(item);
+        this.select(e.currentTarget);
+        this.launch(e.currentTarget.dataset.id);
+      }
     });
   }
 
-  clearSelection() {
-    this.container.querySelectorAll('.desktop-icon.selected').forEach(el => el.classList.remove('selected'));
+  render() {
+    this.container.replaceChildren();
+    this.icons.forEach((cfg) => {
+      const li = document.createElement('li');
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'desktop-icon';
+      item.dataset.id = cfg.id;
+      item.setAttribute('aria-label', `Open ${cfg.label}`);
+      item.innerHTML = '<span class="icon" aria-hidden="true"></span><span class="label"></span>';
+      item.querySelector('.icon').classList.add(cfg.iconClass);
+      item.querySelector('.label').textContent = cfg.label;
+      li.appendChild(item);
+      this.container.appendChild(li);
+    });
   }
 
-  openInternetExplorer() {
-    if (this.ieManager) {
-      this.ieManager.open();
-    }
+  select(el) {
+    this.container.querySelectorAll('.desktop-icon.selected').forEach((n) => n.classList.remove('selected'));
+    el.classList.add('selected');
   }
 
-  openChannels() {
-    if (this.channelsManager) {
-      this.channelsManager.open();
-    }
-  }
-
-  openHomework() {
-    if (this.folderManager) {
-      this.folderManager.openHomework();
-    }
-  }
-
-  openAIM() {
-    // Toggle AIM app (Buddy List + Chat) without losing messages
-    const buddy = document.querySelector('.buddy-list');
-    const chat = document.querySelector('.chat-window');
-    const isHidden = chat ? (getComputedStyle(chat).display === 'none') : true;
-    // If hidden, show both; otherwise hide both
-    if (isHidden) {
-      if (buddy) {
-        buddy.style.display = 'block';
-        buddy.style.zIndex = ++windowManager.zIndexCounter;
-      }
-      if (chat) {
-        chat.style.display = 'block';
-        chat.style.zIndex = ++windowManager.zIndexCounter;
-      }
-      if (window.taskbarManager) window.taskbarManager.setActive('chat', true);
-    } else {
-      if (buddy) buddy.style.display = 'none';
-      if (chat) chat.style.display = 'none';
-      if (window.taskbarManager) window.taskbarManager.setActive('chat', false);
-    }
-  }
-
-  openMail() {
-    if (window.mailManager) {
-      window.mailManager.open();
-    }
-  }
-
-  openPaint() {
-    const manager = this.paintManager || window.paintManager;
-    if (manager) manager.open();
-  }
-
-  openMediaPlayer() {
-    const manager = this.mediaPlayerManager || window.mediaPlayerManager;
-    if (manager && typeof manager.openOxfordInnovation === 'function') {
-      // Pass a gesture hint so autoplay isn't blocked by browsers
-      manager.openOxfordInnovation({ gesture: true });
-    }
+  launch(id) {
+    const icon = this.icons.find((i) => i.id === id);
+    if (icon) icon.open();
   }
 }
 
-// Global instance created in main.js
+window.DesktopIconsManager = DesktopIconsManager;

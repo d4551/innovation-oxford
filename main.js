@@ -1,151 +1,149 @@
 // ============================================
 // MAIN APPLICATION
-// Coordinates all modules and initializes the app
+// Boots the modules and wires the cross-cutting behaviour: the clock, the
+// compact/desktop layout switch, global keyboard shortcuts.
 // ============================================
 
-// ============================================
-// TIME UPDATE
-// ============================================
+const CLOCK_INTERVAL_MS = 30000;
+// Below this width (or height, in landscape) free-floating windows stop making
+// sense and every app renders full-bleed instead. Kept in sync with main.css.
+const COMPACT_QUERY = '(max-width: 900px), (max-height: 520px)';
+
+// ---------- clock ----------
 
 function updateTime() {
-    const now = new Date();
-    const hours = now.getHours() % 12 || 12;
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
-    const timeDisplay = document.getElementById('timeDisplay');
-    if (timeDisplay) {
-        timeDisplay.textContent = `${hours}:${minutes} ${ampm}`;
-    }
+  const el = document.getElementById('timeDisplay');
+  if (!el) return;
+  const now = new Date();
+  const hours = now.getHours() % 12 || 12;
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+  el.textContent = `${hours}:${minutes} ${ampm}`;
+  el.dateTime = now.toISOString();
 }
 
-// ============================================
-// GLOBAL FUNCTIONS (Called from HTML)
-// ============================================
+// ---------- layout mode ----------
 
-function sendMessage() {
-    if (chatManager) {
-        chatManager.sendMessage();
-    }
+function applyLayoutMode(matches) {
+  document.body.classList.toggle('is-compact', matches);
+  // Floating windows can end up off-screen after a rotation or resize.
+  windowManager.clampAllToViewport();
 }
 
-function openChat(username) {
-    if (chatManager) {
-        chatManager.openChat(username);
-    }
+function watchLayoutMode() {
+  const mq = window.matchMedia(COMPACT_QUERY);
+  applyLayoutMode(mq.matches);
+  mq.addEventListener('change', (e) => applyLayoutMode(e.matches));
+  window.addEventListener('resize', () => windowManager.clampAllToViewport());
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => windowManager.clampAllToViewport(), 200);
+  });
 }
 
-function createTerminalWindow() {
-    if (terminalManager) {
-        terminalManager.createTerminal();
+// ---------- keyboard shortcuts ----------
+
+function bindShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd+T opens the MS-DOS prompt.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't' && !e.shiftKey) {
+      e.preventDefault();
+      window.terminalManager?.open();
     }
+    // Escape skips the dial-up sequence.
+    if (e.key === 'Escape' && document.getElementById('dialup-intro')) {
+      window.dialupIntro?.skip();
+    }
+  });
 }
 
-function closeTerminal() {
-    if (terminalManager) {
-        terminalManager.close();
-    }
-}
+// ---------- boot ----------
 
-function minimizeTerminal() {
-    if (terminalManager) {
-        terminalManager.minimize();
-    }
-}
-
-
-
-
-
-// ============================================
-// INITIALIZATION
-// ============================================
-
-// Function to initialize the application after user interaction
+/**
+ * Construct every module. Each one is isolated so a single failure degrades
+ * one feature rather than taking the whole desktop down with it.
+ */
 function initializeApplication() {
-    console.log('🎮 Initializing Oxford Messenger...');
-    
-    // Initialize Window Manager
-    windowManager.init();
-
-    // Initialize taskbar before app modules so they can register
-    if (!window.taskbarManager) {
-        window.taskbarManager = new TaskbarManager();
-        window.taskbarManager.init();
+  const safely = (label, fn) => {
+    try { return fn(); } catch (err) {
+      console.error(`Oxford: "${label}" failed to initialise`, err);
+      return null;
     }
+  };
 
-    // Initialize Chat Manager (AIM)
-    chatManager = new ChatManager(audioManager);
-    chatManager.init();
+  windowManager.init();
 
-    // Initialize Terminal Manager
-    terminalManager = new TerminalManager();
-    
-    // Update time immediately and every minute
-    updateTime();
-    setInterval(updateTime, 60000);
-    
-    // Add keyboard shortcut to open terminal (Ctrl+T)
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.key === 't') {
-            e.preventDefault();
-            if (!document.querySelector('.terminal-window')) {
-                createTerminalWindow();
-            }
-        }
-        
-        // ESC to skip dialup intro
-        if (e.key === 'Escape' && window.dialupIntro && document.getElementById('dialup-intro')) {
-            window.dialupIntro.skip();
-        }
+  window.taskbarManager = safely('taskbar', () => {
+    const t = new TaskbarManager();
+    t.init();
+    return t;
+  });
+
+  window.chatManager = safely('messenger', () => {
+    const c = new ChatManager(audioManager);
+    c.init();
+    return c;
+  });
+
+  window.terminalManager = safely('terminal', () => new TerminalManager());
+  window.ieManager = safely('internet explorer', () => new IEManager());
+  window.mailManager = safely('mail', () => new MailManager());
+  window.channelsManager = safely('channels', () => new ChannelsManager({ ieManager: window.ieManager }));
+  window.folderManager = safely('folders', () => new FolderManager());
+  window.mediaPlayerManager = safely('media player', () => new MediaPlayerManager({ windowTitle: 'Oxford Media Player' }));
+  window.paintManager = safely('paint', () => new PaintManager({ imagePath: 'media/inno-paint.jpg' }));
+
+  safely('start menu', () => {
+    window.startMenu = new StartMenu({
+      chatManager: window.chatManager,
+      ieManager: window.ieManager,
+      mailManager: window.mailManager,
+      paintManager: window.paintManager,
+      channelsManager: window.channelsManager,
     });
-    
-    // Initialize app modules that don't require audio
-    if (!window.ieManager) {
-        window.ieManager = new IEManager();
-    }
-    if (!window.mailManager) {
-        window.mailManager = new MailManager();
-    }
-    if (!window.channelsManager) {
-        window.channelsManager = new ChannelsManager({ ieManager: window.ieManager });
-    }
-    if (!window.mailManager) {
-        window.mailManager = new MailManager();
-    }
-    if (!window.folderManager) {
-        window.folderManager = new FolderManager();
-    }
-    if (!window.mediaPlayerManager) {
-        window.mediaPlayerManager = new MediaPlayerManager({ windowTitle: 'Oxford Media Player' });
-    }
-    if (!window.paintManager) {
-        window.paintManager = new PaintManager({ imagePath: 'media/inno-paint.jpg' });
-    }
-    if (!window.startMenu) {
-        window.startMenu = new StartMenu({ ieManager: window.ieManager, channelsManager: window.channelsManager, mailManager: window.mailManager, paintManager: window.paintManager });
-        window.startMenu.init();
-    }
-    if (!window.desktopIcons) {
-        window.desktopIcons = new DesktopIconsManager({ ieManager: window.ieManager, channelsManager: window.channelsManager, mailManager: window.mailManager, folderManager: window.folderManager, mediaPlayerManager: window.mediaPlayerManager, paintManager: window.paintManager });
-        window.desktopIcons.init();
-    }
+    window.startMenu.init();
+  });
 
-    console.log('✅ Oxford Messenger initialized successfully!');
-    // Desktop will be shown after dial-up completes (handled by DialupIntro)
+  safely('desktop icons', () => {
+    window.desktopIcons = new DesktopIconsManager({
+      chatManager: window.chatManager,
+      ieManager: window.ieManager,
+      mailManager: window.mailManager,
+      paintManager: window.paintManager,
+      channelsManager: window.channelsManager,
+      folderManager: window.folderManager,
+      mediaPlayerManager: window.mediaPlayerManager,
+    });
+    window.desktopIcons.init();
+  });
+
+  document.querySelector('.taskbar-dos')?.addEventListener('click', () => window.terminalManager?.open());
+
+  updateTime();
+  setInterval(updateTime, CLOCK_INTERVAL_MS);
 }
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Hide desktop until dial-up completes
-    const desktop = document.querySelector('.desktop');
-    if (desktop) desktop.classList.add('hidden');
+  watchLayoutMode();
+  bindShortcuts();
+  updateTime();
 
-    // Prepare dial-up/login flow
-    window.dialupIntro = new DialupIntro(audioManager);
-    window.dialupIntro.showLoginScreen();
+  const desktop = document.querySelector('.desktop');
+  if (desktop) {
+    desktop.classList.add('hidden');
+    desktop.setAttribute('aria-hidden', 'true');
+    desktop.inert = true;
+  }
+  const taskbar = document.querySelector('.taskbar');
+  if (taskbar) {
+    // The sign-in dialog is modal and covers the taskbar. `inert` takes its
+    // buttons out of the tab order and out of hit-testing too — aria-hidden
+    // alone would leave them focusable behind the dialog.
+    taskbar.setAttribute('aria-hidden', 'true');
+    taskbar.inert = true;
+  }
 
-    // Do not auto-open Mail before login; user can launch it later
-
-    // Expose helper to reset dial-up for testing
-    // window.resetDialup = () => window.dialupIntro.reset();
+  window.dialupIntro = new DialupIntro(audioManager);
+  // The intro owns the gesture; it calls back once the user has signed in.
+  window.dialupIntro.onDone = initializeApplication;
+  window.dialupIntro.showLoginScreen();
 });

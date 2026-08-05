@@ -1,236 +1,219 @@
 // ============================================
 // DIALUP INTRO MODULE
-// Handles the AOL dial-up connection sequence
+// Sign-in screen, then the AOL-style connection sequence, then the desktop.
+//
+// The sequence is time-boxed: whether or not the audio plays, whether or not it
+// loads, the user always reaches the desktop. A stuck sound can never strand
+// someone on the connection screen.
 // ============================================
 
+const MAX_DIALUP_MS = 9000;
+// With no sound to wait for there is nothing to pace against — but the three
+// progress boxes still have to fill before "Connected" appears, or the screen
+// contradicts itself. Long enough to read, short enough not to be a wait.
+const SILENT_DIALUP_MS = 2400;
+const WAIT_AFTER_DIAL_MS = 1200;
+const FADE_MS = 700;
+// Absolute ceiling from "Sign In" to desktop, regardless of audio state.
+const HARD_TIMEOUT_MS = 20000;
+
 class DialupIntro {
-    constructor(audioManager) {
-        this.audioManager = audioManager;
-        this.introContainer = null;
-        this.hasPlayed = false;
-        this.timers = [];
-    }
-    
-    show() {
-        // Check if already shown in this session
-        if (this.hasPlayed || sessionStorage.getItem('dialupShown')) {
-            return false;
-        }
-        
-        this.hasPlayed = true;
-        sessionStorage.setItem('dialupShown', 'true');
-        
-        // Show login screen first
-        this.showLoginScreen();
-        
-        return true;
-    }
-    
-    showLoginScreen() {
-        // Create intro overlay - reusing existing window structure
-        this.introContainer = document.createElement('div');
-        this.introContainer.id = 'dialup-intro';
-        this.introContainer.className = 'dialup-intro';
-        
-        this.introContainer.innerHTML = `
-            <div class="window dialup-window">
-                <div class="title-bar">
-                    <div class="title-bar-text">Welcome to Oxford Online</div>
-                    <div class="title-bar-controls">
-                        <!-- No skip on login to avoid loop -->
-                    </div>
-                </div>
-                <div class="window-body">
-                    <div class="logo-container">
-                        <img src="media/Oxford/logo.svg" alt="Oxford Logo" class="logo-img">
-                        <div class="logo-text">OXFORD<br><span class="logo-online">Online</span></div>
-                    </div>
-                    <form class="form-95" onsubmit="return window.dialupIntro.handleLoginSubmit(event)">
-                        <div class="row">
-                            <label for="oo-username">Screen Name</label>
-                            <input id="oo-username" class="input-95" type="text" autocomplete="username" required>
-                        </div>
-                        <div class="row">
-                            <label for="oo-password">Password</label>
-                            <input id="oo-password" class="input-95" type="password" autocomplete="current-password" required>
-                        </div>
-                        <div class="button-row" style="margin-top: 10px;">
-                            <button type="submit" class="btn-95 btn-connect">Sign In</button>
-                        </div>
-                    </form>
-                </div>
+  constructor(audioManager) {
+    this.audioManager = audioManager;
+    this.container = null;
+    this.timers = [];
+    this.finished = false;
+    this.onDone = null;
+  }
+
+  schedule(fn, ms) {
+    const id = setTimeout(fn, ms);
+    this.timers.push(id);
+    return id;
+  }
+
+  clearTimers() {
+    this.timers.forEach(clearTimeout);
+    this.timers = [];
+  }
+
+  showLoginScreen() {
+    this.container = document.createElement('div');
+    this.container.id = 'dialup-intro';
+    this.container.className = 'dialup-intro';
+    this.container.innerHTML = `
+      <div class="window dialup-window" role="dialog" aria-modal="true" aria-labelledby="dialup-title">
+        <div class="title-bar">
+          <div class="title-bar-text"><span id="dialup-title">Welcome to Oxford Online</span></div>
+        </div>
+        <div class="window-body">
+          <div class="logo-container">
+            <img src="media/Oxford/logo.svg" alt="" aria-hidden="true" class="logo-img">
+            <div class="logo-text">OXFORD<br><span class="logo-online">Online</span></div>
+          </div>
+          <form class="form-95 login-form" novalidate>
+            <div class="row">
+              <label for="oo-username">Screen Name</label>
+              <input id="oo-username" class="input-95" type="text" autocomplete="username" required autocapitalize="none" spellcheck="false">
             </div>
-        `;
-        
-        document.body.appendChild(this.introContainer);
-    }
-    
-    handleLoginSubmit(e) {
-        e.preventDefault();
-        const user = (document.getElementById('oo-username')?.value || '').trim();
-        const pass = (document.getElementById('oo-password')?.value || '').trim();
-        if (!user || !pass) return false;
-
-        // Persist for the session (fake auth)
-        sessionStorage.setItem('ooUser', user);
-
-        // Initialize app components now that we have user interaction
-        try {
-            if (this.audioManager && !this.audioManager.initialized) {
-                this.audioManager.init();
-            }
-            if (typeof initializeApplication === 'function') {
-                initializeApplication();
-            }
-        } catch (err) {
-            console.warn('Init after login failed', err);
-        }
-
-        // Move to connection sequence
-        this.connect();
-        return false;
-    }
-
-    connect() {
-        // Remove login screen and show connection sequence
-        if (this.introContainer) {
-            this.introContainer.remove();
-        }
-        
-        // Create connection animation screen
-        this.introContainer = document.createElement('div');
-        this.introContainer.id = 'dialup-intro';
-        this.introContainer.className = 'dialup-intro';
-        
-        this.introContainer.innerHTML = `
-            <div class="window dialup-window">
-                <div class="title-bar">
-                    <div class="title-bar-text">Welcome to Oxford Online</div>
-                    <div class="title-bar-controls">
-                        <button class="btn-95" onclick="window.dialupIntro.skip()" aria-label="Skip" title="Skip (ESC)">×</button>
-                    </div>
-                </div>
-                <div class="window-body">
-                    <div class="logo-container logo-container-large">
-                        <img src="media/Oxford/logo.svg" alt="Oxford Logo" class="logo-img logo-img-large">
-                        <div class="logo-text logo-text-large">OXFORD<br><span class="logo-online logo-online-large">Online</span></div>
-                    </div>
-                    <div class="status-message">
-                        <span id="dialup-status-text">Connecting To Oxford Online...</span>
-                    </div>
-                    <div class="animation-boxes">
-                        <div class="aol-box" id="aol-box-1">
-                            <div class="box-emoji">🏃</div>
-                        </div>
-                        <div class="aol-box" id="aol-box-2">
-                            <div class="box-emoji">🏃💨</div>
-                        </div>
-                        <div class="aol-box" id="aol-box-3">
-                            <div class="box-emoji">👥</div>
-                        </div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <button class="btn-95 btn-center" onclick="window.dialupIntro.skip()">Cancel</button>
-                </div>
+            <div class="row">
+              <label for="oo-password">Password</label>
+              <input id="oo-password" class="input-95" type="password" autocomplete="current-password" required>
             </div>
-        `;
-        
-        document.body.appendChild(this.introContainer);
-        
-        // Start the connection sequence
-        this.startSequence();
+            <p class="login-hint">Any name and password will do — this is a museum piece.</p>
+            <div class="button-row">
+              <button type="submit" class="btn-95 btn-connect">Sign In</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(this.container);
+
+    this.container.querySelector('.login-form').addEventListener('submit', (e) => this.handleLoginSubmit(e));
+    // Focus the first field so keyboard and screen-reader users start in place.
+    requestAnimationFrame(() => this.container.querySelector('#oo-username')?.focus());
+  }
+
+  handleLoginSubmit(e) {
+    e.preventDefault();
+    const user = (document.getElementById('oo-username')?.value || '').trim();
+    const pass = (document.getElementById('oo-password')?.value || '').trim();
+    if (!user || !pass) {
+      const missing = document.getElementById(user ? 'oo-password' : 'oo-username');
+      missing?.focus();
+      missing?.setAttribute('aria-invalid', 'true');
+      return false;
     }
-    
-    startSequence() {
-        const statusText = document.getElementById('dialup-status-text');
-        const box1 = document.getElementById('aol-box-1');
-        const box2 = document.getElementById('aol-box-2');
-        const box3 = document.getElementById('aol-box-3');
 
-        const dial = this.audioManager && this.audioManager.sounds ? this.audioManager.sounds.dialup : null;
-        let dialDurationMs = 0;
-        try {
-            const d = dial && dial.duration ? dial.duration() : 0;
-            dialDurationMs = d ? Math.round(d * 1000) : 0;
-        } catch (e) {
-            dialDurationMs = 0;
-        }
+    try { sessionStorage.setItem('ooUser', user); } catch (_) {}
 
-        // Cap dial-up max length to keep UX snappy, but let it fully play if shorter
-        const MAX_DIALUP_MS = 9000;
-        const targetDialMs = dialDurationMs > 0 ? Math.min(dialDurationMs, MAX_DIALUP_MS) : MAX_DIALUP_MS;
-
-        console.log('🔊 Playing dial-up sound...', { targetDialMs, dialDurationMs });
-
-        // Schedule proportional animation fills relative to target dial duration
-        const schedule = (fn, ms) => { const id = setTimeout(fn, ms); this.timers.push(id); return id; };
-        const p1 = Math.max(200, Math.floor(targetDialMs * 0.11));
-        const p2 = Math.max(400, Math.floor(targetDialMs * 0.44));
-        const p3 = Math.max(600, Math.floor(targetDialMs * 0.77));
-
-        schedule(() => { statusText.textContent = 'Connecting To Oxford Online...'; if (box1) box1.classList.add('filled'); }, p1);
-        schedule(() => { if (box2) box2.classList.add('filled'); }, p2);
-        schedule(() => { if (box3) box3.classList.add('filled'); }, p3);
-
-        // Chain: Dial-up (end or cap) -> Welcome (end) -> You've Got Mail (end) -> Fade
-        const WAIT_AFTER_DIAL_MS = 1500; // small pause before Welcome
-        const afterDial = () => {
-            console.log('✅ Dial-up complete');
-            if (statusText) statusText.textContent = 'Connected. Preparing welcome...';
-            schedule(() => {
-                if (statusText) statusText.textContent = 'Welcome!';
-                this.audioManager.playWelcome(() => {
-                    console.log('✅ Welcome sound played');
-                    this.audioManager.playGotMail(() => {
-                        console.log('✅ You\'ve Got Mail sound played');
-                        schedule(() => this.fadeOut(), 500);
-                    });
-                });
-            }, WAIT_AFTER_DIAL_MS);
-        };
-
-        if (this.audioManager && this.audioManager.playDialupWithCap) {
-            this.audioManager.playDialupWithCap(targetDialMs, afterDial);
-        } else if (this.audioManager && this.audioManager.playDialup) {
-            // Fallback: no cap support
-            this.audioManager.playDialup(afterDial);
-        } else {
-            console.error('❌ Audio manager or dialup sound not initialized');
-            // Proceed anyway after target duration
-            schedule(afterDial, targetDialMs);
-        }
+    // Audio must be created from inside the gesture for autoplay policies —
+    // but a failure here must never stop the app from booting.
+    try {
+      if (this.audioManager && !this.audioManager.initialized) this.audioManager.init();
+    } catch (err) {
+      console.warn('DialupIntro: audio init failed, continuing without sound', err);
     }
-    
-    fadeOut() {
-        if (this.introContainer) {
-            this.introContainer.classList.add('fade-out');
-            
-            setTimeout(() => {
-                if (this.introContainer && this.introContainer.parentNode) {
-                    this.introContainer.remove();
-                }
-                this.introContainer = null;
-                // Clear any pending timers
-                try { this.timers.forEach(id => clearTimeout(id)); } catch (e) {}
-                this.timers = [];
-                // Reveal desktop/dashboard when sequence finishes
-                const desktop = document.querySelector('.desktop');
-                if (desktop) desktop.classList.remove('hidden');
-            }, 1000);
-        }
+
+    if (typeof this.onDone === 'function') {
+      try { this.onDone(); } catch (err) { console.error('DialupIntro: app init failed', err); }
     }
-    
-    skip() {
-        // Allow users to skip the intro
-        this.audioManager.stopAll();
-        this.fadeOut();
-    }
-    
-    // Reset for testing (removes session storage flag)
-    reset() {
-        sessionStorage.removeItem('dialupShown');
-        this.hasPlayed = false;
-    }
+
+    this.connect();
+    return false;
+  }
+
+  connect() {
+    this.container?.remove();
+
+    this.container = document.createElement('div');
+    this.container.id = 'dialup-intro';
+    this.container.className = 'dialup-intro';
+    this.container.innerHTML = `
+      <div class="window dialup-window" role="dialog" aria-modal="true" aria-labelledby="dialup-connect-title">
+        <div class="title-bar">
+          <div class="title-bar-text"><span id="dialup-connect-title">Welcome to Oxford Online</span></div>
+          <div class="title-bar-controls">
+            <button type="button" class="title-bar-btn" data-act="skip" aria-label="Skip the connection sequence" title="Skip (Esc)">X</button>
+          </div>
+        </div>
+        <div class="window-body">
+          <div class="logo-container logo-container-large">
+            <img src="media/Oxford/logo.svg" alt="" aria-hidden="true" class="logo-img logo-img-large">
+            <div class="logo-text logo-text-large">OXFORD<br><span class="logo-online logo-online-large">Online</span></div>
+          </div>
+          <p class="status-message"><span id="dialup-status-text" role="status">Connecting To Oxford Online...</span></p>
+          <div class="animation-boxes" aria-hidden="true">
+            <div class="aol-box"><div class="box-emoji">🏃</div></div>
+            <div class="aol-box"><div class="box-emoji">🏃💨</div></div>
+            <div class="aol-box"><div class="box-emoji">👥</div></div>
+          </div>
+          <div class="progress-line" aria-hidden="true"></div>
+          <button type="button" class="btn-95 btn-center" data-act="skip">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(this.container);
+
+    Utils.on(this.container, 'click', '[data-act="skip"]', () => this.skip());
+    this.container.querySelector('.btn-center')?.focus();
+    this.startSequence();
+  }
+
+  startSequence() {
+    const statusText = this.container.querySelector('#dialup-status-text');
+    const boxes = Array.from(this.container.querySelectorAll('.aol-box'));
+
+    // One timeline drives both the boxes and the hand-off to "Connected", so
+    // they can never disagree. Muted or without Howler there is no sound to
+    // pace against, and nine seconds of silence is not a connection sequence.
+    const audible = this.audioManager?.canPlay?.('dialup');
+    const dialDuration = this.audioManager?.durationMs?.('dialup') || 0;
+    const targetDialMs = audible
+      ? (dialDuration > 0 ? Math.min(dialDuration, MAX_DIALUP_MS) : MAX_DIALUP_MS)
+      : SILENT_DIALUP_MS;
+
+    // Fill the three boxes proportionally across the dial-up sound.
+    [0.11, 0.44, 0.77].forEach((pct, i) => {
+      this.schedule(() => boxes[i]?.classList.add('filled'), Math.max(200 * (i + 1), Math.floor(targetDialMs * pct)));
+    });
+
+    const afterDial = () => {
+      if (this.finished) return;
+      if (statusText) statusText.textContent = 'Connected. Preparing welcome...';
+      this.schedule(() => {
+        if (statusText) statusText.textContent = 'Welcome!';
+        this.audioManager.playWelcome(() => {
+          this.audioManager.playGotMail(() => this.schedule(() => this.fadeOut(), 400));
+        });
+      }, WAIT_AFTER_DIAL_MS);
+    };
+
+    this.audioManager.playDialupWithCap(targetDialMs, afterDial);
+
+    // Belt and braces: never leave anyone stuck on the connection screen.
+    this.schedule(() => this.fadeOut(), HARD_TIMEOUT_MS);
+  }
+
+  fadeOut() {
+    if (this.finished) return;
+    this.finished = true;
+    this.clearTimers();
+
+    const reveal = () => {
+      this.container?.remove();
+      this.container = null;
+      const desktop = document.querySelector('.desktop');
+      if (desktop) {
+        desktop.classList.remove('hidden');
+        desktop.removeAttribute('aria-hidden');
+        desktop.inert = false;
+      }
+      document.body.classList.add('is-signed-in');
+      const taskbar = document.querySelector('.taskbar');
+      if (taskbar) {
+        taskbar.removeAttribute('aria-hidden');
+        taskbar.inert = false;
+      }
+      // Move focus somewhere sensible now the dialog is gone.
+      document.querySelector('.buddy-list .buddy-item:not([disabled])')?.focus();
+    };
+
+    if (!this.container || Utils.prefersReducedMotion()) { reveal(); return; }
+    this.container.classList.add('fade-out');
+    setTimeout(reveal, FADE_MS);
+  }
+
+  skip() {
+    this.audioManager.stopAll();
+    this.fadeOut();
+  }
+
+  reset() {
+    try { sessionStorage.removeItem('ooUser'); } catch (_) {}
+    this.finished = false;
+  }
 }
 
-// Instance is created on window in main.js
+window.DialupIntro = DialupIntro;

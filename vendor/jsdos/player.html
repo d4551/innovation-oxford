@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DOS Player</title>
+<!--
+  js-dos 8 is hosted in this frame rather than directly in the page, for two
+  reasons:
+
+  1. Its stylesheet is a full Tailwind build including preflight
+     (`*,:before,:after{border-width:0}` and friends). Dropped into the page it
+     would strip the borders the entire Windows 95 look is built from; the app
+     currently survives it only because our class selectors happen to out-rank
+     `*`. That is luck, not isolation.
+  2. Its layout uses `h-full` chains and viewport-level listeners that assume it
+     owns the document. Inside an app window it escaped its container and
+     covered the title bar.
+
+  A same-origin frame gives it the whole viewport it expects, and gives the app
+  back a hard boundary. Closing the window removes the frame, which is also the
+  most complete teardown available.
+-->
+<link rel="stylesheet" href="js-dos.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  .player-shell { position: relative; width: 100%; height: 100%; }
+  #player { width: 100%; height: 100%; }
+  .boot-status {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #fff; font: 12px "Courier New", Courier, monospace; pointer-events: none;
+  }
+  /* js-dos.css is a Tailwind build, and its `[hidden]` rule loads before this
+     block — so a class selector with `display:flex` would quietly beat it. */
+  .boot-status[hidden] { display: none; }
+
+  /* --- target size and focus for js-dos's own controls -------------------
+     Its collapsed rail is 1rem wide, under the 24px minimum (WCAG 2.5.8), and
+     nothing it draws shows a focus ring because nothing it draws is
+     focusable. js-dos scopes its own rules under `.jsdos-rso`, so these match
+     that specificity — and stay narrow enough not to disturb the generic
+     Tailwind utilities they mention. The rail, the spacer that reserves room
+     for it, and the artwork offset all have to move together. */
+  .jsdos-rso .sidebar-thin { width: 1.5rem; }
+  .jsdos-rso .window > .relative > .w-4.flex-shrink-0 { width: 1.5rem; }
+  .jsdos-rso .window .background-image.left-4 { left: 1.5rem; }
+  .jsdos-rso .sidebar-button:focus-visible,
+  .jsdos-rso .sidebar-thin > [role="button"]:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+  }
+  /* The speed panel's radios ship at 1.25rem — also under the 24px minimum. */
+  .jsdos-rso .radio.radio-sm { width: 1.5rem; height: 1.5rem; }
+</style>
+</head>
+<body>
+  <!-- js-dos mounts its whole UI inside #player and puts it in no landmark of
+       its own, so this document supplies one. Without it every control the
+       player draws sits outside any region. -->
+  <main class="player-shell" aria-label="DOS game">
+    <div id="player"></div>
+    <div class="boot-status" id="status">Loading DOS environment…</div>
+  </main>
+  <script>
+    // The Keyboard Lock API is only available to a top-level browsing context,
+    // so in this frame every call rejects and logs. Removing the capability is
+    // more honest than letting js-dos probe for something that cannot work
+    // here — and it keeps the console clean.
+    try {
+      if (navigator.keyboard) delete navigator.keyboard;
+      if (navigator.keyboard) Object.defineProperty(navigator, 'keyboard', { value: undefined, configurable: true });
+    } catch (e) { /* not removable; the rejection is harmless */ }
+  </script>
+  <script src="js-dos.js"></script>
+  <script>
+    (function () {
+      // The host puts the bundle URL in the frame's name instead of a query
+      // string, so this document has one stable URL that can be prefetched.
+      var bundle = window.name || new URLSearchParams(location.search).get('bundle');
+      var statusEl = document.getElementById('status');
+      var dos = null;
+
+      function post(type, detail) {
+        try { parent.postMessage({ source: 'jsdos-player', type: type, detail: detail || null }, location.origin); }
+        catch (e) { /* parent gone */ }
+      }
+      function setStatus(text) {
+        statusEl.textContent = text || '';
+        statusEl.hidden = !text;
+      }
+
+      if (!bundle) {
+        setStatus('No game bundle specified.');
+        post('error', 'No game bundle specified.');
+        return;
+      }
+
+      try {
+        dos = Dos(document.getElementById('player'), {
+          url: bundle,
+          pathPrefix: 'emulators/',
+          // Plain DOSBox: 1.4MB of WebAssembly against 7.9MB for DOSBox-X, and
+          // everything these two titles need. Locked so the settings panel
+          // cannot switch to a backend that is not vendored.
+          backend: 'dosbox',
+          backendLocked: true,
+          // Boot straight into the game.
+          autoStart: true,
+          countDownStart: 0,
+          // Nothing leaves the machine: no cloud saves, no accounts.
+          noCloud: true,
+          autoSave: false,
+          // With a real keyboard the collapsed rail is right: every pixel goes
+          // to the game. With a touch screen it is not — these games open on
+          // prompts that want a keypress, and the only keyboard is the one
+          // behind that rail. Show the controls where they are the only way in.
+          thinSidebar: !window.matchMedia('(pointer: coarse)').matches,
+          imageRendering: 'pixelated',
+          theme: 'light',
+          onEvent: function (event) {
+            if (event === 'emu-ready' || event === 'ci-ready') setStatus('');
+            post('event', event);
+          },
+        });
+      } catch (err) {
+        setStatus('Could not start the DOS player.');
+        post('error', (err && err.message) || 'Could not start the DOS player.');
+        return;
+      }
+
+      // ------------------------------------------------------------------
+      // Accessibility layer over js-dos's own controls.
+      //
+      // js-dos draws every control in its sidebar as a bare
+      // `<div class="sidebar-button">` carrying a click handler: no role, no
+      // accessible name, and no place in the tab order. For a keyboard user
+      // that means save state, the on-screen keyboard, full screen, speed and
+      // settings are simply unreachable — WCAG 2.1.1 (A) — and for anyone on a
+      // screen reader they are unlabelled divs, WCAG 4.1.2 (A).
+      //
+      // Rather than patch a 320KB minified bundle, the nodes are upgraded in
+      // place as they appear. Each rule below is keyed on something js-dos
+      // renders deliberately — a class it sets, or the icon it draws — and if
+      // a future version stops matching, the control keeps no label and the
+      // test suite fails on it rather than shipping a silent regression.
+      // ------------------------------------------------------------------
+      var CONTROL_LABELS = [
+        { label: 'Save game state', test: function (el) { return el.classList.contains('save-button'); } },
+        { label: 'Toggle full screen', test: function (el) { return el.classList.contains('fullscreen-button'); } },
+        { label: 'Speed and turbo settings', test: function (el) { return el.classList.contains('turbo'); } },
+        { label: 'Emulator speed statistics', test: function (el) { return el.classList.contains('cycles'); } },
+        // The soft-keyboard icon is the only one drawn on a 507.9 viewBox.
+        // Named for the action, so it does not collide with the name of the
+        // keyboard it opens.
+        { label: 'Toggle on-screen keyboard', test: function (el) { return !!el.querySelector('svg[viewBox="0 0 507.9 507.9"]'); } },
+        // The settings cog, identified by the first segment of its path.
+        { label: 'Player settings', test: function (el) { return !!el.querySelector('path[d^="M9.594 3.94"]'); } },
+      ];
+
+      function labelFor(el) {
+        for (var i = 0; i < CONTROL_LABELS.length; i++) {
+          if (CONTROL_LABELS[i].test(el)) return CONTROL_LABELS[i].label;
+        }
+        return null;
+      }
+
+      // The on-screen keyboard draws its keys as <kbd> elements whose only
+      // labels are glyphs. These are js-dos's own glyph choices, read from the
+      // `softKeyboardSymbols` table it ships.
+      var KEY_LABELS = {
+        '␛': 'Escape', '⌫': 'Backspace', '↵': 'Enter', '⇑': 'Shift',
+        '⎘': 'Switch keyboard layout', 'En/Ru': 'Switch to English or Russian letters',
+        '↑': 'Up arrow', '↓': 'Down arrow', '←': 'Left arrow', '→': 'Right arrow',
+        '↖': 'Numpad 7', '↗': 'Numpad 9', '↙': 'Numpad 1', '↘': 'Numpad 3',
+        '{': 'Open brace', '}': 'Close brace',
+        '(': 'Open parenthesis', ')': 'Close parenthesis',
+        '-': 'Minus', '+': 'Plus', '.': 'Period', ',': 'Comma',
+      };
+
+      function upgrade(el, label, focusable) {
+        if (!el || el.dataset.a11y === '1' || !label) return;
+        el.dataset.a11y = '1';
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', focusable ? '0' : '-1');
+        el.setAttribute('aria-label', label);
+      }
+
+      function upgradeControls() {
+        // The game surface itself is not focusable in js-dos, so tabbing into
+        // this frame landed on the sidebar — where Enter and Space activate a
+        // button instead of reaching DOSBox, and those are keys games need.
+        // The canvas comes before the sidebar in the DOM, so making it
+        // focusable puts the game first in the tab order, where it belongs.
+        var screenEl = document.querySelector('canvas');
+        if (screenEl && screenEl.dataset.a11y !== '1') {
+          screenEl.dataset.a11y = '1';
+          screenEl.setAttribute('tabindex', '0');
+          // `application` tells assistive technology to pass keystrokes
+          // straight through, which is the only way an emulator can work.
+          screenEl.setAttribute('role', 'application');
+          screenEl.setAttribute('aria-label', 'Game screen — keyboard input goes to the game');
+        }
+
+        upgrade(document.querySelector('.sidebar-thin > div'), 'Show player controls', true);
+        var buttons = document.querySelectorAll('.sidebar-button');
+        for (var i = 0; i < buttons.length; i++) upgrade(buttons[i], labelFor(buttons[i]), true);
+
+        var pad = document.querySelector('.soft-keyboard');
+        if (pad && pad.dataset.a11y !== '1') {
+          pad.dataset.a11y = '1';
+          pad.setAttribute('role', 'group');
+          pad.setAttribute('aria-label', 'On-screen keyboard');
+        }
+        // The keys are deliberately left out of the tab order. Typing into the
+        // game already works from a real keyboard, so 55 extra tab stops would
+        // cost every keyboard user something and gain them nothing; assistive
+        // technology on a touch device reaches them all the same, and there it
+        // is the only keyboard there is.
+        var keys = document.querySelectorAll('.soft-keyboard kbd');
+        for (var k = 0; k < keys.length; k++) {
+          var text = (keys[k].textContent || '').trim();
+          upgrade(keys[k], KEY_LABELS[text] || text, false);
+        }
+
+        nameFields();
+      }
+
+      /**
+       * js-dos writes its settings rows as a caption beside a control:
+       *
+       *     <div class="value"><p>Fast Forward</p><input type="radio"></div>
+       *     <div class="option flex"><div>Rendering</div><div><select>…</select></div></div>
+       *
+       * The caption is never associated with the field, so every toggle,
+       * radio and select in those panels reaches assistive technology with no
+       * name at all. Borrow the caption. (The radios stay radios: announcing
+       * them as switches would read better, but overriding the role of a
+       * native input risks its state being reported wrongly, and the missing
+       * name is the actual failure.)
+       */
+      function nameFields() {
+        var fields = document.querySelectorAll('.jsdos-rso input, .jsdos-rso select, .jsdos-rso textarea');
+        for (var i = 0; i < fields.length; i++) {
+          var el = fields[i];
+          if (el.getAttribute('aria-label') || (el.labels && el.labels.length)) continue;
+          var row = el.closest('.value, .option') || el.parentElement;
+          if (!row) continue;
+          // The first element in the row that holds text and no field of its
+          // own is the caption, whichever tag js-dos happened to use.
+          var candidates = row.querySelectorAll('p, div, span, label');
+          for (var c = 0; c < candidates.length; c++) {
+            var node = candidates[c];
+            if (node.contains(el) || node.querySelector('input, select, textarea')) continue;
+            var text = node.textContent.trim();
+            if (text) { el.setAttribute('aria-label', text); break; }
+          }
+        }
+      }
+
+      // js-dos's keys listen for pointer events only — a click does nothing —
+      // so activation has to speak the same language the emulator does.
+      function pressKey(el) {
+        var opts = { bubbles: true, cancelable: true, composed: true, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+        try {
+          el.dispatchEvent(new PointerEvent('pointerdown', opts));
+          setTimeout(function () { el.dispatchEvent(new PointerEvent('pointerup', opts)); }, 60);
+        } catch (err) { /* no PointerEvent constructor; nothing sensible to do */ }
+      }
+
+      // A div with role="button" has to implement the key handling a real
+      // button gets for free.
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        var el = e.target;
+        if (!el || !el.dataset || el.dataset.a11y !== '1') return;
+        e.preventDefault();
+        if (el.tagName === 'KBD') pressKey(el);
+        else el.click();
+      });
+
+      // js-dos rebuilds the sidebar as the emulator's state changes — the
+      // controls do not all exist when it first mounts.
+      upgradeControls();
+      new MutationObserver(upgradeControls).observe(document.body, { childList: true, subtree: true });
+
+      // The parent pauses a minimized game so it stops burning CPU and audio.
+      window.addEventListener('message', function (e) {
+        if (e.origin !== location.origin || !e.data || e.data.source !== 'jsdos-host') return;
+        try {
+          if (e.data.type === 'pause') dos.setPaused(true);
+          else if (e.data.type === 'resume') dos.setPaused(false);
+          else if (e.data.type === 'stop') dos.stop();
+        } catch (err) { /* emulator already gone */ }
+      });
+
+      post('ready');
+    })();
+  </script>
+</body>
+</html>

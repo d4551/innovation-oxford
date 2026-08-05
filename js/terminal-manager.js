@@ -1,336 +1,346 @@
 // ============================================
 // TERMINAL MANAGER MODULE
-// Handles terminal emulator functionality
+// An MS-DOS style prompt backed by xterm.js.
+//
+// The FitAddon keeps the grid matched to the window at every size — including
+// when the window is resized, maximized, or the device is rotated.
 // ============================================
 
-class TerminalManager {
-    constructor() {
-        this.terminalInstance = null;
-        this.terminalWindow = null;
-        this.commandBuffer = '';
-        this.taskbarId = 'terminal';
-        this.taskbarEntry = null;
-    }
-    
-    createTerminal() {
-        // Prevent multiple terminals
-        if (document.querySelector('.terminal-window')) {
-            // Focus existing and activate taskbar
-            this.terminalWindow = document.querySelector('.terminal-window');
-            this.activate();
-            return this.terminalWindow;
-        }
-        
-        // Create terminal window
-        this.terminalWindow = document.createElement('div');
-        this.terminalWindow.className = 'window terminal-window';
-        this.terminalWindow.style.width = '600px';
-        this.terminalWindow.style.height = '400px';
-        this.terminalWindow.style.top = '100px';
-        this.terminalWindow.style.left = '760px';
-        this.terminalWindow.style.zIndex = '999';
-        
-        // Create title bar
-        const titleBar = document.createElement('div');
-        titleBar.className = 'title-bar';
-        titleBar.innerHTML = `
-            <div class="title-bar-text">
-                <div class="title-bar-icon"></div>
-                MS-DOS Prompt
-            </div>
-            <div class="title-bar-controls">
-                <button class="title-bar-btn" onclick="terminalManager.minimize()">_</button>
-                <button class="title-bar-btn">□</button>
-                <button class="title-bar-btn" onclick="terminalManager.close()">X</button>
-            </div>
-        `;
-        
-        // Create window body
-        const windowBody = document.createElement('div');
-        windowBody.className = 'window-body';
-        windowBody.style.padding = '0';
-        windowBody.style.height = 'calc(100% - 24px)';
-        
-        // Create terminal container
-        const termContainer = document.createElement('div');
-        termContainer.id = 'terminal-container';
-        termContainer.style.height = '100%';
-        termContainer.style.padding = '4px';
-        termContainer.style.background = '#000000';
-        
-        windowBody.appendChild(termContainer);
-        this.terminalWindow.appendChild(titleBar);
-        this.terminalWindow.appendChild(windowBody);
-        document.querySelector('.desktop').appendChild(this.terminalWindow);
-        
-        // Initialize xterm.js
-        this.initializeXterm(termContainer);
-        
-        // Make terminal draggable
-        if (window.windowManager) {
-            window.windowManager.makeWindowDraggable(this.terminalWindow, titleBar);
-        }
-        // Register taskbar button
-        if (window.taskbarManager) {
-            this.taskbarEntry = window.taskbarManager.addWindow(this.taskbarId, 'MS-DOS Prompt', {
-                onToggle: () => this.toggleFromTaskbar(),
-                iconClass: 'term-icon'
-            });
-        }
-        
-        return this.terminalWindow;
-    }
-    
-    initializeXterm(container) {
-        if (typeof Terminal === 'undefined') {
-            container.innerHTML = '<p style="color: white; padding: 10px;">xterm.js not loaded. Check your internet connection.</p>';
-            return;
-        }
-        
-        this.terminalInstance = new Terminal({
-            cursorBlink: true,
-            fontSize: 12,
-            fontFamily: '"Courier New", Courier, monospace',
-            theme: {
-                background: '#000000',
-                foreground: '#ffffff',
-                cursor: '#ffffff',
-                cursorAccent: '#000000'
-            },
-            cols: 80,
-            rows: 24
-        });
-        
-        this.terminalInstance.open(container);
-        this.writeWelcomeMessage();
-        this.setupCommandHandling();
-    }
-    
-    writeWelcomeMessage() {
-        this.terminalInstance.writeln('Microsoft(R) Windows 95');
-        this.terminalInstance.writeln('   (C)Copyright Microsoft Corp 1981-1995.');
-        this.terminalInstance.writeln('');
-        this.terminalInstance.writeln('C:\\WINDOWS>_');
-        this.terminalInstance.writeln('');
-        this.terminalInstance.writeln('Welcome to the Oxford Terminal Simulator!');
-    this.terminalInstance.writeln('Tip: type "dos" to browse games or launch "civ"/"oregon" directly.');
-        this.terminalInstance.writeln('Type "help" for available commands.');
-        this.terminalInstance.writeln('');
-        this.terminalInstance.write('C:\\WINDOWS> ');
-    }
-    
-    setupCommandHandling() {
-        this.commandBuffer = '';
-        
-        this.terminalInstance.onData(data => {
-            const code = data.charCodeAt(0);
-            
-            // Handle printable characters
-            if (code >= 32 && code < 127) {
-                this.commandBuffer += data;
-                this.terminalInstance.write(data);
-            }
-            // Handle backspace
-            else if (code === 127 || code === 8) {
-                if (this.commandBuffer.length > 0) {
-                    this.commandBuffer = this.commandBuffer.slice(0, -1);
-                    this.terminalInstance.write('\b \b');
-                }
-            }
-            // Handle enter
-            else if (code === 13) {
-                this.terminalInstance.writeln('');
-                this.handleCommand(this.commandBuffer.trim());
-                this.commandBuffer = '';
-                this.terminalInstance.write('C:\\WINDOWS> ');
-            }
-        });
-    }
-    
-    handleCommand(cmd) {
-        const command = cmd.toLowerCase();
-        
-        switch(command) {
-            case 'help':
-                this.terminalInstance.writeln('Available commands:');
-                this.terminalInstance.writeln('  help     - Show this help message');
-                this.terminalInstance.writeln('  dir      - List directory contents');
-                this.terminalInstance.writeln('  cls      - Clear screen');
-                this.terminalInstance.writeln('  ver      - Show version');
-                this.terminalInstance.writeln('  time     - Display current time');
-                this.terminalInstance.writeln('  date     - Display current date');
-                this.terminalInstance.writeln('  oxford   - Messenger status');
-                this.terminalInstance.writeln('  whoami   - Display current user');
-                this.terminalInstance.writeln('  civ      - Launch Sid Meier\'s Civilization');
-                this.terminalInstance.writeln('  oregon   - Launch The Oregon Trail');
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'dir':
-                this.terminalInstance.writeln(' Volume in drive C is WINDOWS95');
-                this.terminalInstance.writeln(' Directory of C:\\WINDOWS');
-                this.terminalInstance.writeln('');
-                this.terminalInstance.writeln('OXFORD   EXE     45,312  10-19-99  3:47p');
-                this.terminalInstance.writeln('BUDDY    LST      1,024  10-19-99  2:15p');
-                this.terminalInstance.writeln('CONFIG   SYS        128  10-19-99  1:00p');
-                this.terminalInstance.writeln('AUTOEXEC BAT        256  10-19-99  1:00p');
-                this.terminalInstance.writeln('        4 file(s)     46,720 bytes');
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'cls':
-                this.terminalInstance.clear();
-                break;
-                
-            case 'ver':
-                this.terminalInstance.writeln('Windows 95 [Version 4.00.950]');
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'time':
-                const now = new Date();
-                this.terminalInstance.writeln('Current time is: ' + now.toLocaleTimeString());
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'date':
-                const today = new Date();
-                this.terminalInstance.writeln('Current date is: ' + today.toLocaleDateString());
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'oxford':
-                this.terminalInstance.writeln('Oxford Messenger Status: Connected');
-                this.terminalInstance.writeln('Buddies Online: 3');
-                this.terminalInstance.writeln('Screen Name: User1999');
-                this.terminalInstance.writeln('Version: 4.7.2796');
-                this.terminalInstance.writeln('');
-                break;
-                
-            case 'whoami':
-                this.terminalInstance.writeln(this.getCurrentUser());
-                this.terminalInstance.writeln('');
-                break;
+// How many lines of output the hidden transcript keeps. Enough to read back a
+// long `help` or `dir`, short enough that a long session stays cheap.
+const TRANSCRIPT_LINES = 60;
 
-            case 'dos':
-                this.launchDosLibrary();
-                break;
+class TerminalManager extends AppWindow {
+  constructor() {
+    super({
+      id: 'terminal',
+      title: 'MS-DOS Prompt',
+      className: 'terminal-window',
+      iconClass: 'term-icon',
+      width: 640,
+      height: 420,
+    });
+    this.terminalInstance = null;
+    this.fitAddon = null;
+    this.transcript = null;
+    this.commandBuffer = '';
+    this.history = [];
+    this.historyIndex = -1;
+    this.onWindowResize = () => this.fit();
+  }
 
-            case 'civ':
-                this.launchDosGame('civ', "Sid Meier's Civilization");
-                break;
+  /** Back-compat alias: older call sites said createTerminal(). */
+  createTerminal() { return this.open(); }
 
-            case 'oregon':
-                this.launchDosGame('oregon', 'The Oregon Trail');
-                break;
-                
-            case '':
-                break;
-                
-            default:
-                this.terminalInstance.writeln(`Bad command or file name: ${cmd}`);
-                this.terminalInstance.writeln('');
+  /**
+   * Fetch the terminal engine. xterm is ~480KB — more than the rest of the site
+   * put together — and most visitors never open a prompt, so it is loaded the
+   * first time one is actually needed instead of on every page load.
+   */
+  static loadEngine() {
+    if (TerminalManager.enginePromise) return TerminalManager.enginePromise;
+    TerminalManager.enginePromise = Promise.all([
+      Utils.loadStyle('xterm-css', 'vendor/xterm/xterm.css'),
+      Utils.loadScript('xterm-js', 'vendor/xterm/xterm.js')
+        .then(() => Utils.loadScript('xterm-fit', 'vendor/xterm/addon-fit.js')),
+    ]).catch((err) => {
+      TerminalManager.enginePromise = null;
+      throw err;
+    });
+    return TerminalManager.enginePromise;
+  }
+
+  renderBody(body) {
+    body.classList.add('terminal-body-wrap');
+    this.container = document.createElement('div');
+    this.container.className = 'terminal-container';
+    this.container.innerHTML = '<p class="terminal-fallback">Starting MS-DOS…</p>';
+    body.appendChild(this.container);
+
+    // xterm draws to a canvas and marks its rows aria-hidden, so without this
+    // a screen-reader user can type a command and hear nothing back at all.
+    // (xterm's own `screenReaderMode` mirrors the raw character grid; this
+    // announces the lines we actually wrote, which is what they mean.)
+    this.transcript = document.createElement('div');
+    this.transcript.className = 'visually-hidden';
+    this.transcript.setAttribute('role', 'log');
+    this.transcript.setAttribute('aria-live', 'polite');
+    this.transcript.setAttribute('aria-label', 'Terminal output');
+    body.appendChild(this.transcript);
+
+    window.addEventListener('resize', this.onWindowResize);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', this.onWindowResize);
+
+    TerminalManager.loadEngine()
+      .then(() => {
+        if (!this.container) return; // closed while loading
+        this.container.replaceChildren();
+        this.initializeXterm(this.container);
+        this.fit();
+        this.terminalInstance?.focus();
+      })
+      .catch((err) => {
+        console.error('TerminalManager: could not load the terminal engine', err);
+        if (this.container) {
+          this.container.innerHTML =
+            '<p class="terminal-fallback" role="alert">Could not load the terminal engine. Check your connection and try again.</p>';
         }
+      });
+  }
+
+  onShow() {
+    // Fit after layout settles so the grid matches the real box.
+    requestAnimationFrame(() => {
+      this.fit();
+      this.terminalInstance?.focus();
+    });
+  }
+
+  onClose() {
+    window.removeEventListener('resize', this.onWindowResize);
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', this.onWindowResize);
+    try { this.terminalInstance?.dispose(); } catch (_) {}
+    this.terminalInstance = null;
+    this.fitAddon = null;
+    this.container = null;
+    this.transcript = null;
+  }
+
+  onResize() { this.fit(); }
+
+  fit() {
+    if (!this.fitAddon || !this.terminalInstance) return;
+    if (this.isHidden) return;
+    try { this.fitAddon.fit(); } catch (_) {}
+  }
+
+  initializeXterm(container) {
+    if (typeof Terminal === 'undefined') {
+      container.innerHTML = '<p class="terminal-fallback">Terminal engine unavailable. Reload the page to try again.</p>';
+      return;
     }
 
-    getDosManager() {
-        let manager = window.msdosManager || (typeof msdosManager !== 'undefined' ? msdosManager : null);
-        if (!manager && typeof MSDosManager !== 'undefined') {
-            try {
-                manager = new MSDosManager();
-                if (typeof manager.init === 'function') {
-                    manager.init();
-                }
-                if (typeof msdosManager !== 'undefined') {
-                    msdosManager = manager;
-                }
-                window.msdosManager = manager;
-            } catch (err) {
-                console.warn('TerminalManager: unable to initialize MSDosManager on demand', err);
-            }
-        }
-        if (manager) {
-            if (!window.msdosManager) {
-                window.msdosManager = manager;
-            }
-        }
-        return manager;
+    this.terminalInstance = new Terminal({
+      cursorBlink: !Utils.prefersReducedMotion(),
+      fontSize: Utils.isCompact() ? 11 : 13,
+      fontFamily: '"Courier New", Courier, monospace',
+      theme: { background: '#000000', foreground: '#ffffff', cursor: '#ffffff', cursorAccent: '#000000' },
+      scrollback: 500,
+      convertEol: true,
+    });
+
+    if (typeof FitAddon !== 'undefined' && FitAddon.FitAddon) {
+      this.fitAddon = new FitAddon.FitAddon();
+      this.terminalInstance.loadAddon(this.fitAddon);
     }
 
-    launchDosLibrary() {
-        const manager = this.getDosManager();
-        if (manager && typeof manager.openLibrary === 'function') {
-            manager.openLibrary();
-            this.terminalInstance.writeln('Opening the MS-DOS game shelf...');
-        } else if (manager) {
-            this.terminalInstance.writeln('MS-DOS subsystem ready, but the library view is unavailable.');
-        } else {
-            this.terminalInstance.writeln('MS-DOS subsystem unavailable. Please try again later.');
-        }
-        this.terminalInstance.writeln('');
-    }
+    this.terminalInstance.open(container);
+    this.fit();
+    this.writeWelcomeMessage();
+    this.setupCommandHandling();
 
-    launchDosGame(gameKey, label) {
-        const manager = this.getDosManager();
-        if (manager) {
-            manager.open(gameKey);
-            this.terminalInstance.writeln(`Launching ${label} in a new window...`);
-        } else {
-            this.terminalInstance.writeln('MS-DOS subsystem unavailable. Please try again later.');
-        }
-        this.terminalInstance.writeln('');
-    }
+    // Tapping the terminal on touch devices should raise the soft keyboard.
+    container.addEventListener('click', () => this.terminalInstance?.focus());
+  }
 
-    getCurrentUser() {
-        try {
-            const stored = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('ooUser') : null;
-            if (stored && stored.trim()) {
-                return stored.trim();
-            }
-        } catch (err) {
-            console.warn('TerminalManager: unable to access sessionStorage', err);
-        }
-        return 'User1999@aol.com';
-    }
-    
-    close() {
-        if (this.terminalWindow) {
-            this.terminalWindow.remove();
-            this.terminalInstance = null;
-            this.terminalWindow = null;
-            if (window.taskbarManager) window.taskbarManager.remove(this.taskbarId);
-        }
-    }
-    
-    minimize() {
-        if (this.terminalWindow) {
-            this.terminalWindow.style.display = 'none';
-            if (window.taskbarManager) window.taskbarManager.setActive(this.taskbarId, false);
-        }
-    }
-    
-    restore() {
-        if (this.terminalWindow) {
-            this.terminalWindow.style.display = 'block';
-            this.activate();
-        }
-    }
+  writeWelcomeMessage() {
+    this.writeLines([
+      'Microsoft(R) Windows 95',
+      '   (C)Copyright Microsoft Corp 1981-1995.',
+      '',
+      'Welcome to the Oxford Terminal Simulator!',
+      'Tip: type "dos" to browse games, or "civ" / "oregon" to launch one.',
+      'Type "help" for available commands.',
+    ]);
+    this.prompt();
+  }
 
-    toggleFromTaskbar() {
-        if (!this.terminalWindow) {
-            this.createTerminal();
-            return;
-        }
-        const hidden = this.terminalWindow.style.display === 'none';
-        if (hidden) this.restore(); else this.minimize();
-    }
+  prompt() { this.terminalInstance.write('C:\\WINDOWS> '); }
 
-    activate() {
-        if (!this.terminalWindow) return;
-        this.terminalWindow.style.zIndex = ++windowManager.zIndexCounter;
-        if (window.taskbarManager) window.taskbarManager.setActive(this.taskbarId, true);
+  setupCommandHandling() {
+    this.commandBuffer = '';
+    this.terminalInstance.onData((data) => {
+      // Arrow keys arrive as escape sequences; use them for command history.
+      if (data === '\x1b[A' || data === '\x1b[B') {
+        this.recallHistory(data === '\x1b[A' ? -1 : 1);
+        return;
+      }
+      if (data.charCodeAt(0) === 27) return; // ignore other escape sequences
+
+      for (const ch of data) {
+        const code = ch.charCodeAt(0);
+        if (code >= 32 && code !== 127) {
+          this.commandBuffer += ch;
+          this.terminalInstance.write(ch);
+        } else if (code === 127 || code === 8) {
+          if (this.commandBuffer.length) {
+            this.commandBuffer = this.commandBuffer.slice(0, -1);
+            this.terminalInstance.write('\b \b');
+          }
+        } else if (code === 13 || code === 10) {
+          this.terminalInstance.write('\r\n');
+          const cmd = this.commandBuffer.trim();
+          if (cmd) {
+            this.history.push(cmd);
+            if (this.history.length > 50) this.history.shift();
+          }
+          this.historyIndex = this.history.length;
+          this.handleCommand(cmd);
+          this.commandBuffer = '';
+          this.prompt();
+        }
+      }
+    });
+  }
+
+  recallHistory(delta) {
+    if (!this.history.length) return;
+    const next = Utils.clamp(this.historyIndex + delta, 0, this.history.length);
+    this.historyIndex = next;
+    const value = next === this.history.length ? '' : this.history[next];
+    // Clear the current line, then reprint the prompt and the recalled command.
+    this.terminalInstance.write('\r\x1b[K');
+    this.prompt();
+    this.terminalInstance.write(value);
+    this.commandBuffer = value;
+  }
+
+  writeLines(lines) {
+    lines.forEach((l) => this.terminalInstance.writeln(l));
+    this.terminalInstance.writeln('');
+    this.announce(lines);
+  }
+
+  /**
+   * Mirror output into the live region. Blank spacer lines are dropped — they
+   * are layout, not content — and the log is capped so a long session does not
+   * grow an unbounded DOM behind the terminal.
+   */
+  announce(lines) {
+    if (!this.transcript) return;
+    lines
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const p = document.createElement('p');
+        p.textContent = line;
+        this.transcript.appendChild(p);
+      });
+    while (this.transcript.childElementCount > TRANSCRIPT_LINES) {
+      this.transcript.removeChild(this.transcript.firstElementChild);
     }
+  }
+
+  handleCommand(cmd) {
+    const command = cmd.toLowerCase();
+    switch (command) {
+      case '':
+        break;
+
+      case 'help':
+        this.writeLines([
+          'Available commands:',
+          '  help     - Show this help message',
+          '  dir      - List directory contents',
+          '  cls      - Clear screen',
+          '  ver      - Show version',
+          '  time     - Display current time',
+          '  date     - Display current date',
+          '  oxford   - Messenger status',
+          '  whoami   - Display current user',
+          '  dos      - Open the MS-DOS game shelf',
+          "  civ      - Launch Sid Meier's Civilization",
+          '  oregon   - Launch The Oregon Trail',
+        ]);
+        break;
+
+      case 'dir':
+        this.writeLines([
+          ' Volume in drive C is WINDOWS95',
+          ' Directory of C:\\WINDOWS',
+          '',
+          'OXFORD   EXE     45,312  10-19-99  3:47p',
+          'BUDDY    LST      1,024  10-19-99  2:15p',
+          'CONFIG   SYS        128  10-19-99  1:00p',
+          'AUTOEXEC BAT        256  10-19-99  1:00p',
+          '        4 file(s)     46,720 bytes',
+        ]);
+        break;
+
+      case 'cls':
+        this.terminalInstance.clear();
+        this.transcript?.replaceChildren();
+        this.announce(['Screen cleared.']);
+        break;
+
+      case 'ver':
+        this.writeLines(['Windows 95 [Version 4.00.950]']);
+        break;
+
+      case 'time':
+        this.writeLines([`Current time is: ${new Date().toLocaleTimeString()}`]);
+        break;
+
+      case 'date':
+        this.writeLines([`Current date is: ${new Date().toLocaleDateString()}`]);
+        break;
+
+      case 'oxford':
+        this.writeLines([
+          'Oxford Messenger Status: Connected',
+          'Buddies Online: 4',
+          `Screen Name: ${this.getCurrentUser()}`,
+          'Version: 4.7.2796',
+        ]);
+        break;
+
+      case 'whoami':
+        this.writeLines([this.getCurrentUser()]);
+        break;
+
+      case 'dos':
+        this.launchDos(null);
+        break;
+
+      case 'civ':
+        this.launchDos('civ', "Sid Meier's Civilization");
+        break;
+
+      case 'oregon':
+        this.launchDos('oregon', 'The Oregon Trail');
+        break;
+
+      default:
+        this.writeLines([`Bad command or file name: ${cmd}`]);
+    }
+  }
+
+  launchDos(gameKey, label) {
+    const manager = MSDosManager.shared();
+    if (!manager) {
+      this.writeLines(['MS-DOS subsystem unavailable. Please try again later.']);
+      return;
+    }
+    if (gameKey) {
+      manager.open(gameKey);
+      this.writeLines([`Launching ${label} in a new window...`]);
+    } else {
+      manager.openLibrary();
+      this.writeLines(['Opening the MS-DOS game shelf...']);
+    }
+  }
+
+  getCurrentUser() {
+    try {
+      const stored = sessionStorage.getItem('ooUser');
+      if (stored && stored.trim()) return stored.trim();
+    } catch (err) {
+      console.warn('TerminalManager: sessionStorage unavailable', err);
+    }
+    return 'User1999@aol.com';
+  }
+
 }
 
-// Create global instance
-let terminalManager = null;
+TerminalManager.enginePromise = null;
+window.TerminalManager = TerminalManager;

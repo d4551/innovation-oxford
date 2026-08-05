@@ -2,191 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oxford Messenger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Oxford Messenger — a 1999 desktop, rebuilt</title>
+    <meta name="description" content="A playable recreation of a 1999 desktop: AOL-style instant messenger, mail, Paint, a media player, an MS-DOS prompt and real DOS games — all in the browser.">
+    <meta name="theme-color" content="#008080">
+    <meta name="color-scheme" content="light">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="canonical" href="./">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Oxford Messenger — a 1999 desktop, rebuilt">
+    <meta property="og:description" content="Sign in over dial-up, chat with your buddy list, check your mail, and boot a DOS game. No plugins, no CDN, no tracking.">
+    <meta property="og:image" content="media/oxford-page-1600.webp">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Vendored locally: no third-party requests, works offline. See vendor/VERSIONS.md -->
     <link rel="stylesheet" href="main.css">
-    
-    <!-- xterm.js CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
-    <link rel="stylesheet" href="vendor/jsdos/js-dos.css">
-    
-    <!-- Howler.js for sound effects -->
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-    
-    <!-- xterm.js for terminal emulator -->
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-    
-    <!-- Application modules -->
-    <script src="js/audio-manager.js"></script>
-    <script src="js/window-manager.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/chat-manager.js"></script>
-    <script src="js/mail-manager.js"></script>
-    <script src="js/terminal-manager.js"></script>
-    <script src="js/msdos-manager.js"></script>
-    <script src="js/dialup-intro.js"></script>
-    <script src="js/taskbar-manager.js"></script>
-    <script src="js/clipart.js"></script>
-    <script src="js/slides-data.js"></script>
-    <script src="js/media-player-manager.js"></script>
-    <script src="js/ie-manager.js"></script>
-    <script src="js/paint-manager.js"></script>
-    <script src="js/folder-manager.js"></script>
-    <script src="js/channels-manager.js"></script>
-    <script src="js/start-menu.js"></script>
-    <script src="js/desktop-icons.js"></script>
-    
-    <!-- Main application coordinator -->
+
+    <!-- Every module is deferred: parsing is never blocked, and execution order
+         is preserved, so main.js still runs last. -->
+    <script src="vendor/howler/howler.core.min.js" defer></script>
+    <!-- xterm (~480KB) and the DOS runtime (~3.9MB) are loaded on first use,
+         not on every page load. See TerminalManager.loadEngine(). -->
+
+    <script src="js/utils.js" defer></script>
+    <script src="js/buddies.js" defer></script>
+    <script src="js/clipart.js" defer></script>
+    <script src="js/slides-data.js" defer></script>
+    <script src="js/audio-manager.js" defer></script>
+    <script src="js/window-manager.js" defer></script>
+    <script src="js/app-window.js" defer></script>
+    <script src="js/taskbar-manager.js" defer></script>
+    <script src="js/chat-manager.js" defer></script>
+    <script src="js/mail-manager.js" defer></script>
+    <script src="js/terminal-manager.js" defer></script>
+    <script src="js/msdos-manager.js" defer></script>
+    <script src="js/dialup-intro.js" defer></script>
+    <script src="js/media-player-manager.js" defer></script>
+    <script src="js/ie-manager.js" defer></script>
+    <script src="js/paint-manager.js" defer></script>
+    <script src="js/folder-manager.js" defer></script>
+    <script src="js/channels-manager.js" defer></script>
+    <script src="js/start-menu.js" defer></script>
+    <script src="js/desktop-icons.js" defer></script>
     <script src="main.js" defer></script>
 </head>
 <body>
-    <!-- Fake Login handled by dialup-intro.js (shown on load) -->
-    
-    <div class="screen-overlay"></div>
-    <div class="scanline"></div>
-    
-    <div class="desktop hidden">
-        <!-- Buddy List Window -->
-        <div class="window buddy-list">
+    <!-- Decorative CRT layers; hidden from assistive tech and from anyone who
+         has asked for reduced motion (see main.css). -->
+    <div class="screen-overlay" aria-hidden="true"></div>
+    <div class="scanline" aria-hidden="true"></div>
+
+    <main class="desktop hidden" aria-hidden="true">
+        <h1 class="visually-hidden">Oxford Messenger — a 1999 desktop</h1>
+        <!-- Buddy List -->
+        <section class="window buddy-list" aria-label="Buddy List">
             <div class="title-bar">
                 <div class="title-bar-text">
-                    <div class="title-bar-icon"></div>
-                    Buddy List
+                    <div class="title-bar-icon" aria-hidden="true"></div>
+                    <span class="title-bar-label">Buddy List</span>
                 </div>
                 <div class="title-bar-controls">
-                    <button class="title-bar-btn">_</button>
-                    <button class="title-bar-btn">□</button>
-                    <button class="title-bar-btn">X</button>
+                    <button type="button" class="title-bar-btn" data-action="min" aria-label="Minimize Buddy List" title="Minimize">_</button>
+                    <button type="button" class="title-bar-btn" data-action="max" aria-label="Maximize Buddy List" title="Maximize">□</button>
+                    <button type="button" class="title-bar-btn" data-action="close" aria-label="Close Buddy List" title="Close">X</button>
                 </div>
             </div>
             <div class="window-body">
                 <div class="aim-logo">
                     <div class="aim-logo-text">OXFORD</div>
-                    <div style="font-size: 9px; color: #000;">Instant Messenger</div>
+                    <div class="aim-logo-sub">Instant Messenger</div>
                 </div>
-                
-                <div class="buddy-group">
-                    <div class="buddy-group-header">▼ Online (4)</div>
-                    <div class="buddy-list-items">
-                        <div class="buddy-item" onclick="openChat('Sepinator')">
-                            <div class="status-icon"></div>
-                            Sepinator
-                        </div>
-                        <div class="buddy-item" onclick="openChat('xMarkTheNeil99x')">
-                            <div class="status-icon"></div>
-                            xMarkTheNeil99x
-                        </div>
-                        <div class="buddy-item" onclick="openChat('SelvaTron')">
-                            <div class="status-icon"></div>
-                            SelvaTron
-                        </div>
-                        <div class="buddy-item" onclick="openChat('RandoBrando')">
-                            <div class="status-icon status-away"></div>
-                            RandoBrando
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="buddy-group">
-                    <div class="buddy-group-header">▼ Offline (9)</div>
-                    <div class="buddy-list-items">
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            RetroGamer
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            Y2KPrincess
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            Douglas_SpiderManFan88
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            NicholasDaPokeCEO
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            josh95mx
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            VinoTheWiz
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            RachelZStarrrrr
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            Michael_Dad_Rock
-                        </div>
-                        <div class="buddy-item" style="color: #808080;">
-                            <div class="status-icon" style="background: #808080;"></div>
-                            LordEmperorElliot
-                        </div>
-                    </div>
-                </div>
+                <!-- Populated from js/buddies.js -->
+                <div class="buddy-groups"></div>
             </div>
-        </div>
-        
+        </section>
+
         <!-- Chat Window -->
-        <div class="window chat-window">
+        <section class="window chat-window" aria-label="Instant Message">
             <div class="title-bar">
                 <div class="title-bar-text">
-                    <div class="title-bar-icon"></div>
-                    Instant Message from <span id="chatWith">Sepinator</span>
+                    <div class="title-bar-icon" aria-hidden="true"></div>
+                    <span class="title-bar-label">Instant Message from <span id="chatWith">Sepinator</span></span>
                 </div>
                 <div class="title-bar-controls">
-                    <button class="title-bar-btn">_</button>
-                    <button class="title-bar-btn">□</button>
-                    <button class="title-bar-btn">X</button>
+                    <button type="button" class="title-bar-btn" data-action="min" aria-label="Minimize chat" title="Minimize">_</button>
+                    <button type="button" class="title-bar-btn" data-action="max" aria-label="Maximize chat" title="Maximize">□</button>
+                    <button type="button" class="title-bar-btn" data-action="close" aria-label="Close chat" title="Close">X</button>
                 </div>
             </div>
             <div class="window-body">
-                <div class="chat-header">
-                    To: <strong id="chatToUser">Sepinator</strong>
-                </div>
-                
-                <div class="chat-messages" id="chatMessages">
-                    <div class="message">
-                        <span class="message-sender">Sepinator:</span>
-                        <span class="message-time">(3:47:23 PM)</span>
-                        <div>hey whats up! u there?</div>
-                    </div>
-                    <div class="message">
-                        <span class="message-sender" style="color: #0000ff;">You:</span>
-                        <span class="message-time">(3:47:45 PM)</span>
-                        <div>yeah just chillin, listening to some CDs</div>
-                    </div>
-                    <div class="message">
-                        <span class="message-sender">Sepinator:</span>
-                        <span class="message-time">(3:48:12 PM)</span>
-                        <div>cool cool. wanna play some starcraft later?</div>
-                    </div>
-                </div>
-                
-                <div class="chat-input">
-                    <input type="text" id="messageInput" placeholder="Type your message here..." />
-                    <button class="btn-95" onclick="sendMessage()">Send</button>
-                </div>
+                <p class="chat-header">To: <strong id="chatToUser">Sepinator</strong></p>
+
+                <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-label="Conversation" tabindex="0"></div>
+
+                <form class="chat-input">
+                    <label class="visually-hidden" for="messageInput">Message</label>
+                    <input type="text" id="messageInput" placeholder="Type your message here..."
+                           autocomplete="off" enterkeyhint="send" />
+                    <button type="submit" class="btn-95">Send</button>
+                </form>
             </div>
-        </div>
-    </div>
-    
+        </section>
+    </main>
+
     <!-- Taskbar -->
-    <div class="taskbar">
-        <button class="start-btn">
-            <div class="windows-logo"></div>
+    <footer class="taskbar" aria-label="Taskbar" aria-hidden="true">
+        <button type="button" class="start-btn">
+            <span class="windows-logo" aria-hidden="true"></span>
             Start
         </button>
-        <button class="btn-95" onclick="createTerminalWindow()" style="margin-left: 4px; height: 22px; padding: 2px 6px;">
-            MS-DOS
-        </button>
-        <div class="taskbar-windows"></div>
-        <div class="time-display" id="timeDisplay">3:48 PM</div>
-    </div>
+        <button type="button" class="btn-95 taskbar-dos">MS-DOS</button>
+        <div class="taskbar-windows" aria-label="Open windows"></div>
+        <time class="time-display" id="timeDisplay">--:--</time>
+    </footer>
 </body>
 </html>
