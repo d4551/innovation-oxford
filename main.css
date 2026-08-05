@@ -764,11 +764,19 @@ img, svg, video, canvas { max-width: 100%; }
   padding: 2px 8px;
   max-width: 220px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+/* The label truncates, not the button: `text-overflow` has no effect on a flex
+   container's own children, and the inherited centre alignment would otherwise
+   clip the *start* of a long title ("…ford Media Player"). */
+.task-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 .task-btn.active {
   border-color: #000000 #ffffff #ffffff #000000;
