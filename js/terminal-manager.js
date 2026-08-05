@@ -27,15 +27,49 @@ class TerminalManager extends AppWindow {
   /** Back-compat alias: older call sites said createTerminal(). */
   createTerminal() { return this.open(); }
 
+  /**
+   * Fetch the terminal engine. xterm is ~480KB — more than the rest of the site
+   * put together — and most visitors never open a prompt, so it is loaded the
+   * first time one is actually needed instead of on every page load.
+   */
+  static loadEngine() {
+    if (TerminalManager.enginePromise) return TerminalManager.enginePromise;
+    TerminalManager.enginePromise = Promise.all([
+      Utils.loadStyle('xterm-css', 'vendor/xterm/xterm.css'),
+      Utils.loadScript('xterm-js', 'vendor/xterm/xterm.js')
+        .then(() => Utils.loadScript('xterm-fit', 'vendor/xterm/addon-fit.js')),
+    ]).catch((err) => {
+      TerminalManager.enginePromise = null;
+      throw err;
+    });
+    return TerminalManager.enginePromise;
+  }
+
   renderBody(body) {
     body.classList.add('terminal-body-wrap');
     this.container = document.createElement('div');
     this.container.className = 'terminal-container';
+    this.container.innerHTML = '<p class="terminal-fallback">Starting MS-DOS…</p>';
     body.appendChild(this.container);
 
-    this.initializeXterm(this.container);
     window.addEventListener('resize', this.onWindowResize);
     if (window.visualViewport) window.visualViewport.addEventListener('resize', this.onWindowResize);
+
+    TerminalManager.loadEngine()
+      .then(() => {
+        if (!this.container) return; // closed while loading
+        this.container.replaceChildren();
+        this.initializeXterm(this.container);
+        this.fit();
+        this.terminalInstance?.focus();
+      })
+      .catch((err) => {
+        console.error('TerminalManager: could not load the terminal engine', err);
+        if (this.container) {
+          this.container.innerHTML =
+            '<p class="terminal-fallback" role="alert">Could not load the terminal engine. Check your connection and try again.</p>';
+        }
+      });
   }
 
   onShow() {
@@ -44,6 +78,15 @@ class TerminalManager extends AppWindow {
       this.fit();
       this.terminalInstance?.focus();
     });
+  }
+
+  onClose() {
+    window.removeEventListener('resize', this.onWindowResize);
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', this.onWindowResize);
+    try { this.terminalInstance?.dispose(); } catch (_) {}
+    this.terminalInstance = null;
+    this.fitAddon = null;
+    this.container = null;
   }
 
   onResize() { this.fit(); }
@@ -257,13 +300,7 @@ class TerminalManager extends AppWindow {
     return 'User1999@aol.com';
   }
 
-  onClose() {
-    window.removeEventListener('resize', this.onWindowResize);
-    if (window.visualViewport) window.visualViewport.removeEventListener('resize', this.onWindowResize);
-    try { this.terminalInstance?.dispose(); } catch (_) {}
-    this.terminalInstance = null;
-    this.fitAddon = null;
-  }
 }
 
+TerminalManager.enginePromise = null;
 window.TerminalManager = TerminalManager;

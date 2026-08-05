@@ -10,7 +10,7 @@ rotate and no third-party can observe visitors.
 | Terminal | [`@xterm/xterm`](https://www.npmjs.com/package/@xterm/xterm) | 6.0.0 | `vendor/xterm/xterm.js`, `vendor/xterm/xterm.css` |
 | Terminal auto-fit | [`@xterm/addon-fit`](https://www.npmjs.com/package/@xterm/addon-fit) | 0.11.0 | `vendor/xterm/addon-fit.js` |
 | Audio | [`howler`](https://www.npmjs.com/package/howler) | 2.2.4 | `vendor/howler/howler.core.min.js` |
-| DOS emulator UI | [`js-dos`](https://js-dos.com/) | 6.22.60 | `vendor/jsdos/js-dos.js`, `vendor/jsdos/js-dos.css` |
+| DOS emulator UI | [`js-dos`](https://js-dos.com/) | 6.22.60 | `vendor/jsdos/js-dos.js` |
 | DOS emulator runtime | [`emulators`](https://www.npmjs.com/package/emulators) | 0.73.4 | `vendor/jsdos/wdosbox.*`, `vendor/jsdos/wlibzip.*` |
 
 ## Refreshing
@@ -46,6 +46,13 @@ Three things must line up for a game to start, and all three were broken before:
    extraction; they were missing, so no bundle could be read.
 3. **The bundles need js-dos metadata**, including an explicit `.jsdos/`
    directory entry. See `tools/build-jsdos-bundles.py`.
+
+`js-dos.css` (and the loader image it referenced) are **not** shipped. That
+stylesheet lays out a player that owns the whole viewport; inside a small,
+draggable window it pushes the emulator's "press to start" overlay off-screen.
+The runtime styles the parts we use inline, so the games render correctly
+without it. Both files are recoverable from git history if the full-page player
+layout is ever wanted.
 
 Upgrading js-dos to 8.x means a different loader API *and* a different bundle
 format, so it is a deliberate migration rather than a version bump.

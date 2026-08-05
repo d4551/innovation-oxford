@@ -63,6 +63,47 @@
     return () => root.removeEventListener(event, wrapped, options);
   }
 
+  // On-demand asset loading. Heavy dependencies that most visitors never touch
+  // (the terminal engine, the DOS runtime) are fetched the first time they are
+  // actually needed rather than on every page load.
+  const pending = new Map();
+
+  function loadOnce(id, create) {
+    if (document.getElementById(id)) return Promise.resolve();
+    if (pending.has(id)) return pending.get(id);
+    const promise = new Promise((resolve, reject) => {
+      const el = create();
+      el.id = id;
+      el.onload = () => resolve();
+      el.onerror = () => {
+        pending.delete(id);
+        el.remove();
+        reject(new Error(`Failed to load ${id}`));
+      };
+      (document.head || document.documentElement).appendChild(el);
+    });
+    pending.set(id, promise);
+    return promise;
+  }
+
+  function loadScript(id, src) {
+    return loadOnce(id, () => {
+      const el = document.createElement('script');
+      el.async = false; // preserve execution order for dependent scripts
+      el.src = src;
+      return el;
+    });
+  }
+
+  function loadStyle(id, href) {
+    return loadOnce(id, () => {
+      const el = document.createElement('link');
+      el.rel = 'stylesheet';
+      el.href = href;
+      return el;
+    });
+  }
+
   // Promise-based image loader.
   function loadImage(src) {
     return new Promise((resolve, reject) => {
@@ -116,6 +157,8 @@
     escapeHtml,
     escapeAttr,
     on,
+    loadScript,
+    loadStyle,
     loadImage,
     clamp,
     isCompact,

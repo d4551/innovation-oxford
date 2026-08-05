@@ -146,6 +146,9 @@ class DosLibraryWindow extends AppWindow {
       grid.appendChild(item);
     });
     Utils.on(grid, 'click', '.dos-library__item', (e) => this.manager.open(e.currentTarget.dataset.game));
+    // Pointing at an entry is a strong hint; start fetching that bundle early.
+    Utils.on(grid, 'pointerenter', '.dos-library__item', (e) => this.manager.prefetchGame(e.currentTarget.dataset.game), true);
+    Utils.on(grid, 'focusin', '.dos-library__item', (e) => this.manager.prefetchGame(e.currentTarget.dataset.game));
   }
 }
 
@@ -175,30 +178,28 @@ class MSDosManager {
     // Do not eagerly load the ~8MB runtime; wait for a real launch.
   }
 
+  /**
+   * Load the js-dos runtime on first launch.
+   *
+   * Deliberately script-only: `vendor/jsdos/js-dos.css` styles a player that
+   * owns the whole viewport, and inside a small draggable window it pushes the
+   * emulator's "press to start" overlay off-screen. The runtime ships its own
+   * inline styling for the parts we use, so the games render correctly without
+   * it — and it is 36KB we never send.
+   */
   loadRuntime() {
     if (typeof Dos !== 'undefined') return Promise.resolve();
-    if (this.runtimeLoading) return this.runtimeLoading;
-
-    this.runtimeLoading = new Promise((resolve, reject) => {
-      const head = document.head || document.getElementsByTagName('head')[0];
-      if (!head) { reject(new Error('No document head to inject the runtime into')); return; }
-      if (document.getElementById('jsdos-core')) { resolve(); return; }
-      const s = document.createElement('script');
-      s.id = 'jsdos-core';
-      s.async = true;
-      s.src = `${JSDOS_BASE}js-dos.js`;
-      s.onload = () => resolve();
-      s.onerror = () => {
-        this.runtimeLoading = null;
-        reject(new Error(`Failed to load ${s.src}`));
-      };
-      head.appendChild(s);
-    });
+    if (!this.runtimeLoading) {
+      this.runtimeLoading = Utils.loadScript('jsdos-core', `${JSDOS_BASE}js-dos.js`)
+        .catch((err) => {
+          this.runtimeLoading = null;
+          throw err;
+        });
+    }
     return this.runtimeLoading;
   }
 
   openLibrary() {
-    this.preloadGameArchives();
     if (!this.library) this.library = new DosLibraryWindow(this);
     return this.library.open();
   }
@@ -209,7 +210,7 @@ class MSDosManager {
       console.warn(`MSDosManager: unknown game key "${gameKey}"`);
       return null;
     }
-    this.preloadGameArchives();
+    this.prefetchGame(gameKey);
     let instance = this.instances.get(gameKey);
     if (!instance) {
       instance = new DosGameWindow(this, config);
@@ -218,19 +219,21 @@ class MSDosManager {
     return instance.open();
   }
 
-  preloadGameArchives() {
+  /**
+   * Warm the cache for a game's bundle. Each is ~1.8MB, so only the game the
+   * user is actually heading for is prefetched, never the whole shelf.
+   */
+  prefetchGame(gameKey) {
+    const game = this.games[gameKey];
     const head = document.head || document.getElementsByTagName('head')[0];
-    if (!head) return;
-    Object.values(this.games).forEach((game) => {
-      if (this.preloadLinks.has(game.resource)) return;
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = this.resolveAsset(game.resource);
-      link.as = 'fetch';
-      link.crossOrigin = 'anonymous';
-      head.appendChild(link);
-      this.preloadLinks.add(game.resource);
-    });
+    if (!game || !head || this.preloadLinks.has(game.resource)) return;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = this.resolveAsset(game.resource);
+    link.as = 'fetch';
+    link.crossOrigin = 'anonymous';
+    head.appendChild(link);
+    this.preloadLinks.add(game.resource);
   }
 
   resolveAsset(path) {

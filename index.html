@@ -18,13 +18,12 @@
 
     <!-- Vendored locally: no third-party requests, works offline. See vendor/VERSIONS.md -->
     <link rel="stylesheet" href="main.css">
-    <link rel="stylesheet" href="vendor/xterm/xterm.css">
 
     <!-- Every module is deferred: parsing is never blocked, and execution order
          is preserved, so main.js still runs last. -->
     <script src="vendor/howler/howler.core.min.js" defer></script>
-    <script src="vendor/xterm/xterm.js" defer></script>
-    <script src="vendor/xterm/addon-fit.js" defer></script>
+    <!-- xterm (~480KB) and the DOS runtime (~3.9MB) are loaded on first use,
+         not on every page load. See TerminalManager.loadEngine(). -->
 
     <script src="js/utils.js" defer></script>
     <script src="js/buddies.js" defer></script>

@@ -6,6 +6,10 @@ in the browser from static files.
 
 No build step, no framework, no CDN, no tracking. Open `index.html` and it runs.
 
+The first load is ~306KB across 25 requests. The terminal engine (~480KB) and
+the DOS runtime (~3.9MB) are fetched only when you actually open a prompt or a
+game, so most visitors never download them.
+
 ## Running it
 
 Any static file server works:
