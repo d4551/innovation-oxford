@@ -6,6 +6,10 @@
 // when the window is resized, maximized, or the device is rotated.
 // ============================================
 
+// How many lines of output the hidden transcript keeps. Enough to read back a
+// long `help` or `dir`, short enough that a long session stays cheap.
+const TRANSCRIPT_LINES = 60;
+
 class TerminalManager extends AppWindow {
   constructor() {
     super({
@@ -18,6 +22,7 @@ class TerminalManager extends AppWindow {
     });
     this.terminalInstance = null;
     this.fitAddon = null;
+    this.transcript = null;
     this.commandBuffer = '';
     this.history = [];
     this.historyIndex = -1;
@@ -51,6 +56,17 @@ class TerminalManager extends AppWindow {
     this.container.className = 'terminal-container';
     this.container.innerHTML = '<p class="terminal-fallback">Starting MS-DOS…</p>';
     body.appendChild(this.container);
+
+    // xterm draws to a canvas and marks its rows aria-hidden, so without this
+    // a screen-reader user can type a command and hear nothing back at all.
+    // (xterm's own `screenReaderMode` mirrors the raw character grid; this
+    // announces the lines we actually wrote, which is what they mean.)
+    this.transcript = document.createElement('div');
+    this.transcript.className = 'visually-hidden';
+    this.transcript.setAttribute('role', 'log');
+    this.transcript.setAttribute('aria-live', 'polite');
+    this.transcript.setAttribute('aria-label', 'Terminal output');
+    body.appendChild(this.transcript);
 
     window.addEventListener('resize', this.onWindowResize);
     if (window.visualViewport) window.visualViewport.addEventListener('resize', this.onWindowResize);
@@ -87,6 +103,7 @@ class TerminalManager extends AppWindow {
     this.terminalInstance = null;
     this.fitAddon = null;
     this.container = null;
+    this.transcript = null;
   }
 
   onResize() { this.fit(); }
@@ -127,14 +144,14 @@ class TerminalManager extends AppWindow {
   }
 
   writeWelcomeMessage() {
-    const t = this.terminalInstance;
-    t.writeln('Microsoft(R) Windows 95');
-    t.writeln('   (C)Copyright Microsoft Corp 1981-1995.');
-    t.writeln('');
-    t.writeln('Welcome to the Oxford Terminal Simulator!');
-    t.writeln('Tip: type "dos" to browse games, or "civ" / "oregon" to launch one.');
-    t.writeln('Type "help" for available commands.');
-    t.writeln('');
+    this.writeLines([
+      'Microsoft(R) Windows 95',
+      '   (C)Copyright Microsoft Corp 1981-1995.',
+      '',
+      'Welcome to the Oxford Terminal Simulator!',
+      'Tip: type "dos" to browse games, or "civ" / "oregon" to launch one.',
+      'Type "help" for available commands.',
+    ]);
     this.prompt();
   }
 
@@ -191,6 +208,27 @@ class TerminalManager extends AppWindow {
   writeLines(lines) {
     lines.forEach((l) => this.terminalInstance.writeln(l));
     this.terminalInstance.writeln('');
+    this.announce(lines);
+  }
+
+  /**
+   * Mirror output into the live region. Blank spacer lines are dropped — they
+   * are layout, not content — and the log is capped so a long session does not
+   * grow an unbounded DOM behind the terminal.
+   */
+  announce(lines) {
+    if (!this.transcript) return;
+    lines
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const p = document.createElement('p');
+        p.textContent = line;
+        this.transcript.appendChild(p);
+      });
+    while (this.transcript.childElementCount > TRANSCRIPT_LINES) {
+      this.transcript.removeChild(this.transcript.firstElementChild);
+    }
   }
 
   handleCommand(cmd) {
@@ -231,6 +269,8 @@ class TerminalManager extends AppWindow {
 
       case 'cls':
         this.terminalInstance.clear();
+        this.transcript?.replaceChildren();
+        this.announce(['Screen cleared.']);
         break;
 
       case 'ver':

@@ -122,10 +122,15 @@ desktop, with every app open, and inside the DOS player with its sidebar,
 settings, speed panel and on-screen keyboard open. Zero violations, zero console
 errors, zero horizontal overflow.
 
-The DOS player's own controls are held to the same bar as the rest of the app:
-role, accessible name, focus ring, 24px target and keyboard operation. js-dos
-ships none of those, so `vendor/jsdos/player.html` adds them — see
-[`vendor/VERSIONS.md`](vendor/VERSIONS.md).
+The two pieces of third-party UI a visitor actually touches are held to the same
+bar as the rest of the app:
+
+- **The DOS player.** js-dos draws its controls as bare divs with click
+  handlers — no role, no name, no tab stop, and a 16px rail. `player.html` adds
+  all of it; see [`vendor/VERSIONS.md`](vendor/VERSIONS.md).
+- **The terminal.** xterm renders to a canvas and marks its rows `aria-hidden`,
+  so its output reaches no screen reader at all. `TerminalManager` keeps a
+  `role="log"` transcript of every line it writes, off-screen but announced.
 
 Only Chromium is available in the environment used for those runs, so Firefox
 and Safari have not been exercised automatically. Nothing in the code is
