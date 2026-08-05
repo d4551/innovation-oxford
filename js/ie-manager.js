@@ -15,7 +15,11 @@ class IEManager extends AppWindow {
       height: 600,
     });
     this.defaultUrl = 'https://lifelong-learning.ox.ac.uk/courses/emerging-technologies-for-social-innovation-and-entrepreneurship?code=O25P103COJ';
-    this.snapshotSrc = 'media/oxford-page.png';
+    // The snapshot fills the window, so a phone needs a fraction of what a
+    // maximized window on a 2560 display does. It used to be one 3.4MB PNG for
+    // everybody, which is most of this app's weight for one picture.
+    this.snapshotSrcset = [1024, 1600, 2560].map((w) => `media/oxford-page-${w}.webp ${w}w`).join(', ');
+    this.snapshotSrc = 'media/oxford-page-1600.webp';
     this.currentUrl = this.defaultUrl;
   }
 
@@ -32,8 +36,11 @@ class IEManager extends AppWindow {
       <div class="ie-frame-wrap">
         <div class="ie-scroll">
           <img class="ie-snapshot" src="${Utils.escapeAttr(this.snapshotSrc)}"
+               srcset="${Utils.escapeAttr(this.snapshotSrcset)}" sizes="100vw"
+               fetchpriority="high"
+               width="1600" height="4840"
                alt="Screenshot of the Oxford course page. Opens the real page in a new tab."
-               loading="lazy" decoding="async" />
+               decoding="async" />
         </div>
       </div>
     `;
@@ -51,10 +58,30 @@ class IEManager extends AppWindow {
     snapshot.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInTab(); }
     });
+    this.matchSnapshotToWindow();
   }
+
+  /**
+   * The snapshot fills the window, not the viewport, so a static `sizes` would
+   * be wrong in one direction or the other: too small once the window is
+   * maximized, or needlessly large while it is not. Measure the element and
+   * tell the browser the truth. Widening it re-selects a larger source;
+   * narrowing keeps the one already fetched, which is what you want.
+   */
+  matchSnapshotToWindow() {
+    const snapshot = this.$('.ie-snapshot');
+    if (!snapshot) return;
+    const width = Math.round(snapshot.getBoundingClientRect().width);
+    if (width > 0) snapshot.sizes = `${width}px`;
+  }
+
+  onResize() { this.matchSnapshotToWindow(); }
 
   onShow(url) {
     if (url) this.navigate(url);
+    // The window is laid out by the time this runs on first open, but a
+    // restore from the taskbar can land before layout settles.
+    requestAnimationFrame(() => this.matchSnapshotToWindow());
   }
 
   navigate(url) {

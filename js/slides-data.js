@@ -88,7 +88,7 @@
       imageToggle: {
         label: 'Show Exhibit A Image',
         hideLabel: 'Hide Exhibit A Image',
-        src: 'media/virtualboy.png'
+        src: 'media/virtualboy.webp'
       },
       mediaLinks: [
         { label: '► Exhibit A: Watch X-Files Clip', path: 'media/xfiles.mp4', type: 'video' }

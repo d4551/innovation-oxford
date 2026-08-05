@@ -8,7 +8,9 @@ No build step, no framework, no CDN, no tracking. Open `index.html` and it runs.
 
 The first load is ~306KB across 25 requests. The terminal engine (~480KB) and
 the DOS runtime (~2.3MB) are fetched only when you actually open a prompt or a
-game, so most visitors never download them.
+game, so most visitors never download them. The page snapshot behind Internet
+Explorer ships at three widths and the browser picks one — 223KB on an ordinary
+laptop, where it used to be a single 3.4MB PNG for everybody.
 
 ## Running it
 

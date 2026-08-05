@@ -1064,9 +1064,31 @@ img, svg, video, canvas { max-width: 100%; }
 }
 .mail-window .mail-reader-body img { max-width: 100%; height: auto; }
 
-/* Mail toasts */
-.mail-window .mail-toast { position: absolute; top: calc(var(--titlebar-h) + 8px); right: 10px; background: #ffffcc; border: 2px solid #000080; padding: 4px 8px; font-size: 12px; opacity: 0; transform: translateY(-6px); transition: all .25s ease; box-shadow: 2px 2px #000; }
+/* Mail toasts.
+   Anchored to the bottom, not below the title bar: up there it landed on the
+   toolbar, and on a narrow window — where the toolbar wraps to two rows — it
+   sat squarely on "Mark Unread". `pointer-events: none` so that even while it
+   is on screen it can never swallow a click meant for what is underneath. */
+.mail-window .mail-toast {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  max-width: calc(100% - 20px);
+  background: #ffffcc;
+  border: 2px solid #000080;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .25s ease, transform .25s ease;
+  box-shadow: 2px 2px #000;
+  pointer-events: none;
+  z-index: 5;
+}
 .mail-window .mail-toast.show { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .mail-window .mail-toast { transition: none; transform: none; }
+}
 
 /* IE iframe fallback overlay */
 .ie-frame-wrap { position: relative; }

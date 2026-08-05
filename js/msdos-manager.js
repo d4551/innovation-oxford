@@ -13,8 +13,8 @@
 // ============================================
 
 const DOS_GAMES = {
-  civ: { id: 'civ', title: "Sid Meier's Civilization", resource: 'games/civ.jsdos' },
-  oregon: { id: 'oregon', title: 'The Oregon Trail', resource: 'games/oregon.jsdos' },
+  civ: { id: 'civ', title: "Sid Meier's Civilization", note: 'MicroProse, 1991', resource: 'games/civ.jsdos' },
+  oregon: { id: 'oregon', title: 'The Oregon Trail', note: 'MECC, 1990', resource: 'games/oregon.jsdos' },
 };
 const JSDOS_BASE = 'vendor/jsdos/';
 // js-dos runs inside this frame; see the comment at the top of player.html for
@@ -165,7 +165,8 @@ class DosLibraryWindow extends AppWindow {
       className: 'dos-library-window',
       iconClass: 'term-icon',
       width: 520,
-      height: 360,
+      // Sized to the shelf's contents rather than opening two thirds empty.
+      height: 200,
       controls: { minimize: true, maximize: false, close: true },
     });
     this.manager = manager;
@@ -186,7 +187,9 @@ class DosLibraryWindow extends AppWindow {
       item.dataset.game = game.id;
       item.innerHTML = '<span class="dos-library__item-title"></span><span class="dos-library__item-note"></span>';
       item.querySelector('.dos-library__item-title').textContent = game.title;
-      item.querySelector('.dos-library__item-note').textContent = game.resource;
+      // Who made it and when, not where the bundle lives — the path was only
+      // ever interesting to whoever built the shelf.
+      item.querySelector('.dos-library__item-note').textContent = game.note;
       grid.appendChild(item);
     });
     Utils.on(grid, 'click', '.dos-library__item', (e) => this.manager.open(e.currentTarget.dataset.game));

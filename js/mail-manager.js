@@ -53,7 +53,7 @@ const NINTENDO_AD = `
         <li>Exclusive launch titles built for 3‑D speed</li>
       </ul>
       <div class="message-hero">
-        <img class="message-hero-img retro-asset" src="media/virtualboy.png" width="360" loading="lazy" decoding="async" alt="Nintendo Virtual Boy console on a stand with its controller" />
+        <img class="message-hero-img retro-asset" src="media/virtualboy.webp" width="360" height="458" loading="lazy" decoding="async" alt="Nintendo Virtual Boy console on a stand with its controller" />
       </div>
       <p class="ad-copy">Power up. Dial your senses to eleven. <em>Virtual Boy</em> doesn’t just play games— it <strong>warps reality</strong>. Are you game enough?</p>
       <div class="ad-cta">Power Up Today</div>
