@@ -397,7 +397,11 @@ class ChatManager {
   }
 
   toggleFromTaskbar() {
-    if (this.isHidden) this.show(); else this.hide();
+    if (this.isHidden) { this.show(); return; }
+    const win = document.querySelector('.chat-window');
+    // Covered by another window? Bring it forward instead of hiding it.
+    if (win && !windowManager.isTopmost(win)) { this.show(); return; }
+    this.hide();
   }
 
   activate() {

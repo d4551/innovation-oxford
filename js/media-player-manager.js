@@ -453,7 +453,7 @@ class MediaPlayerManager extends AppWindow {
   // Taskbar click with no window open should start the default clip.
   toggleFromTaskbar() {
     if (!this.windowEl) { this.openOxfordInnovation({ gesture: true }); return; }
-    if (this.isHidden) this.restore(); else this.minimize();
+    super.toggleFromTaskbar();
   }
 
   onHide() { if (this.mediaEl && !this.mediaEl.paused) this.mediaEl.pause(); }

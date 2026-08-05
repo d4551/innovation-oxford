@@ -179,6 +179,7 @@ img, svg, video, canvas { max-width: 100%; }
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 12px;
 }
 
 .dos-library__intro {
@@ -371,6 +372,8 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* Windows 95 Window Styles */
 .window {
+  display: flex;
+  flex-direction: column;
   background: #c0c0c0;
   border: 2px solid;
   border-color: #dfdfdf #808080 #808080 #dfdfdf;
@@ -402,7 +405,8 @@ img, svg, video, canvas { max-width: 100%; }
 .window .resize-sw { left: -3px; bottom: -3px; }
 
 .title-bar {
-  background: linear-gradient(to right, #000080, #1084d0);
+  flex: 0 0 auto;
+  background: linear-gradient(to right, var(--w95-title-a), var(--w95-title-b));
   padding: 2px 4px;
   display: flex;
   justify-content: space-between;
@@ -456,9 +460,10 @@ img, svg, video, canvas { max-width: 100%; }
 .window-body {
   padding: 8px;
   background: var(--w95-face);
-  /* Windows created by WindowManager get their body height from CSS rather
-     than inline styles, so the compact layout can override it cleanly. */
-  height: calc(100% - var(--titlebar-h));
+  /* Fill whatever the title bar leaves. Deriving this from a fixed
+     --titlebar-h broke whenever the real title bar measured differently. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 /* Shells built by createWindowShell() lay out their own chrome. */
@@ -719,11 +724,23 @@ img, svg, video, canvas { max-width: 100%; }
   display: flex;
   gap: 4px;
   margin-left: 6px;
-  margin-right: auto; /* push the clock to the right */
+  /* The only part of the taskbar allowed to flex — and it scrolls rather than
+     squashing its buttons into each other. */
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.taskbar-windows::-webkit-scrollbar { display: none; }
+
+/* Everything else in the taskbar keeps its natural size. */
+.start-btn,
+.taskbar-dos,
+.time-display { flex: 0 0 auto; }
 
 .start-btn {
+  white-space: nowrap;
   min-height: var(--tap);
   background: var(--w95-face);
   border: 2px solid;
@@ -742,6 +759,7 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* Taskbar window buttons */
 .task-btn {
+  flex: 0 0 auto;
   min-height: var(--tap);
   padding: 2px 8px;
   max-width: 220px;
@@ -949,9 +967,15 @@ img, svg, video, canvas { max-width: 100%; }
   color: #ffffff;
 }
 .mail-window { --mail-sidebar-w: 280px; --mail-gutter: 8px; --mail-list-columns: 160px 1fr 120px; }
-.mail-window .mail-layout { display: block; width: 100%; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.mail-window .mail-layout { display: flex; width: 100%; min-height: 0; flex: 1 1 auto; overflow: hidden; }
 /* Two-column layout: list (left) | resizer | reader (right) with header over list */
 .mail-window .mail-right {
+  /* Needs a definite height, or the `1fr` row sizes to content: the list and
+     reader then grow past the window and their own scrollbars never appear,
+     leaving every message after the first screenful unreachable. */
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(0, var(--mail-list-w, 42%)) 6px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
@@ -1010,6 +1034,9 @@ img, svg, video, canvas { max-width: 100%; }
 .mail-window .mail-list-item:hover { background: #e6f2ff; }
 .mail-window .mail-list-item.active { background: #000080; color: #ffffff !important; }
 .mail-window .mail-list-item .from { font-weight: bold; font-size: 12px; }
+/* Grid children default to min-width:auto, so a long address pushes past its
+   column and lands on top of the subject. */
+.mail-window .mail-columns > * { min-width: 0; overflow-wrap: anywhere; }
 .mail-window .mail-list-item .subject { font-size: 12px; }
 .mail-window .mail-list-item .date { font-size: 11px; color: #404040 !important; text-align: right; }
 .mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: visible; border: 1px solid #808080; background: #ffffff; position: relative; z-index: 2; }
@@ -1030,7 +1057,7 @@ img, svg, video, canvas { max-width: 100%; }
 .mail-window .mail-reader-body img { max-width: 100%; height: auto; }
 
 /* Mail toasts */
-.mail-window .mail-toast { position: absolute; top: 26px; right: 10px; background: #ffffcc; border: 2px solid #000080; padding: 4px 8px; font-size: 12px; opacity: 0; transform: translateY(-6px); transition: all .25s ease; box-shadow: 2px 2px #000; }
+.mail-window .mail-toast { position: absolute; top: calc(var(--titlebar-h) + 8px); right: 10px; background: #ffffcc; border: 2px solid #000080; padding: 4px 8px; font-size: 12px; opacity: 0; transform: translateY(-6px); transition: all .25s ease; box-shadow: 2px 2px #000; }
 .mail-window .mail-toast.show { opacity: 1; transform: translateY(0); }
 
 /* IE iframe fallback overlay */
@@ -1197,8 +1224,9 @@ img, svg, video, canvas { max-width: 100%; }
 }
 
 .time-display {
-  margin-left: auto;
+  margin-left: 6px;
   padding: 2px 8px;
+  white-space: nowrap;
   border: 2px solid;
   border-color: #808080 #ffffff #ffffff #808080;
   font-size: 11px;
@@ -1486,13 +1514,16 @@ img, svg, video, canvas { max-width: 100%; }
   background: #cfcfe2;
 }
 .media-player-window .wmp-body {
-  height: 100%;
+  /* No height here: this element IS the .window-body, which already sizes
+     itself to the window minus the title bar. */
   box-sizing: border-box;
 }
 .media-player-window .wmp-chrome {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   gap: 8px;
   padding: 8px;
   background: linear-gradient(135deg, #f5f5ff 0%, #e1e1f4 100%);
@@ -1824,6 +1855,10 @@ img, svg, video, canvas { max-width: 100%; }
 .media-player-window .wmp-screen { position: relative; height: var(--wmp-screen-h); background: #000; border: 2px inset #808080; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .media-player-window .wmp-clickstart { position: absolute; inset: 0; margin: auto; height: 36px; width: 160px; z-index: 3; }
 .media-player-window .wmp-media-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.media-player-window .wmp-status-row,
+.media-player-window .wmp-seek-row,
+.media-player-window .wmp-controls,
+.media-player-window .wmp-track-title { flex: 0 0 auto; }
 .media-player-window .wmp-status-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 6px; }
 .media-player-window .wmp-controls { display: flex; gap: 6px; margin-top: 6px; }
 .media-player-window .wmp-track-title { font-size: 11px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1850,7 +1885,7 @@ img, svg, video, canvas { max-width: 100%; }
 .media-player-window .wmp-seek { width: 100%; }
 .media-player-window .wmp-controls .wmp-spacer { flex: 1; }
 .media-player-window .wmp-vol { width: 100px; }
-.media-player-window .wmp-playlist { margin-top: 8px; max-height: 120px; overflow: auto; background: #ffffff; border: 1px solid #808080; padding: 4px; }
+.media-player-window .wmp-playlist { margin-top: 8px; flex: 0 1 auto; min-height: 0; max-height: 120px; overflow: auto; background: #ffffff; border: 1px solid #808080; padding: 4px; }
 .media-player-window .wmp-playlist .pl-item { font-size: 11px; padding: 4px; min-height: var(--tap); display: flex; align-items: center; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .media-player-window .wmp-playlist .pl-item:hover { background: #e6f2ff; }
 /* Paint window */
@@ -1874,8 +1909,15 @@ img, svg, video, canvas { max-width: 100%; }
   background-repeat: no-repeat; background-position: center;
 }
 .paint-window .paint-canvas-wrap { position: relative; flex: 1; min-height: 0; overflow: auto; background: #ffffff; }
-.paint-window .paint-base { position: absolute; inset: 0 auto auto 0; }
-.paint-window .paint-draw { position: absolute; inset: 0 auto auto 0; }
+/* Base image and draw layer must stay pixel-registered, so both are centred
+   the same way. */
+.paint-window .paint-base,
+.paint-window .paint-draw {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
 
 /* ============================================================
    9. MARKUP INTRODUCED BY THE REFACTOR
@@ -1912,7 +1954,7 @@ img, svg, video, canvas { max-width: 100%; }
 .mail-window .sent-body { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; }
 
 /* Compose window */
-.compose-window .window-body { padding: 8px; }
+.desktop > .window.compose-window > .window-body { padding: 8px; }
 .compose-window .compose-body { width: 100%; flex: 1; min-height: 120px; resize: none; font-family: var(--font-ui); }
 .compose-window .form-95 { display: flex; flex-direction: column; height: 100%; gap: 6px; }
 .compose-window .form-95 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; }
@@ -1999,6 +2041,10 @@ img, svg, video, canvas { max-width: 100%; }
   .desktop {
     padding: 8px;
     padding-bottom: calc(var(--taskbar-total) + 8px);
+    /* Windows are position:fixed, so only the icon grid scrolls here — which
+       is what keeps every icon reachable on a short landscape screen. */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Every window fills the work area. `!important` is load-bearing here:
@@ -2022,10 +2068,6 @@ img, svg, video, canvas { max-width: 100%; }
   .desktop .window .resize-handle { display: none !important; }
 
   .desktop .window > .window-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: auto !important;
-    overflow: auto;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -2083,9 +2125,11 @@ img, svg, video, canvas { max-width: 100%; }
   /* One channel tile per row reads better than two cramped ones. */
   .channels-grid { grid-template-columns: 1fr; }
 
-  /* Media player fills the pane and the video grows to match. */
+  /* Cap the video pane so the transport controls and playlist keep room;
+     letting it flex freely leaves the playlist two rows tall on a phone. */
+  .media-player-window .wmp-screen { flex: 0 1 auto; height: 40dvh; min-height: 140px; }
   .media-player-window .wmp-vol { width: 72px; }
-  .media-player-window .wmp-playlist { max-height: 96px; }
+  .media-player-window .wmp-playlist { max-height: none; flex: 1 1 auto; min-height: 72px; }
 
   .slides-header { flex-wrap: wrap; row-gap: 6px; }
   .slides-view { padding: 10px; }
@@ -2095,14 +2139,8 @@ img, svg, video, canvas { max-width: 100%; }
 
   .dos-library__grid { grid-template-columns: 1fr; }
 
-  /* Taskbar buttons scroll instead of shrinking into illegibility. */
-  .taskbar-windows {
-    overflow-x: auto;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-  }
-  .taskbar-windows::-webkit-scrollbar { display: none; }
-  .task-btn { flex: 0 0 auto; max-width: 132px; }
+  /* Narrower buttons so more of the open windows are visible at once. */
+  .task-btn { max-width: 132px; }
 
   .start-menu { width: min(280px, calc(100vw - 16px)); }
 
@@ -2115,6 +2153,27 @@ img, svg, video, canvas { max-width: 100%; }
   .logo-img-large { width: 64px; }
   .logo-text-large { font-size: 26px; }
   .animation-boxes { gap: 8px; }
+}
+
+/* Landscape phones are wide and very short. Stacking the roster over the
+   conversation leaves ~140px for each; side by side is the shape every mobile
+   messenger uses at this aspect ratio. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .desktop .buddy-list {
+    width: 38% !important;
+    max-width: 320px;
+    height: calc(100dvh - var(--taskbar-total)) !important;
+    max-height: none;
+    border-right-width: 2px;
+  }
+  .desktop .chat-window {
+    left: min(38%, 320px) !important;
+    top: 0 !important;
+    width: calc(100% - min(38%, 320px)) !important;
+    height: calc(100dvh - var(--taskbar-total)) !important;
+  }
+  .desktop-icons { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+  .aim-logo { display: none; }
 }
 
 /* Phones: fewer columns still, and hide the least useful chrome. */

@@ -178,9 +178,14 @@ class DialupIntro {
       if (desktop) {
         desktop.classList.remove('hidden');
         desktop.removeAttribute('aria-hidden');
+        desktop.inert = false;
       }
       document.body.classList.add('is-signed-in');
-      document.querySelector('.taskbar')?.removeAttribute('aria-hidden');
+      const taskbar = document.querySelector('.taskbar');
+      if (taskbar) {
+        taskbar.removeAttribute('aria-hidden');
+        taskbar.inert = false;
+      }
       // Move focus somewhere sensible now the dialog is gone.
       document.querySelector('.buddy-list .buddy-item:not([disabled])')?.focus();
     };

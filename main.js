@@ -131,8 +131,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (desktop) {
     desktop.classList.add('hidden');
     desktop.setAttribute('aria-hidden', 'true');
+    desktop.inert = true;
   }
-  document.querySelector('.taskbar')?.setAttribute('aria-hidden', 'true');
+  const taskbar = document.querySelector('.taskbar');
+  if (taskbar) {
+    // The sign-in dialog is modal and covers the taskbar. `inert` takes its
+    // buttons out of the tab order and out of hit-testing too — aria-hidden
+    // alone would leave them focusable behind the dialog.
+    taskbar.setAttribute('aria-hidden', 'true');
+    taskbar.inert = true;
+  }
 
   window.dialupIntro = new DialupIntro(audioManager);
   // The intro owns the gesture; it calls back once the user has signed in.

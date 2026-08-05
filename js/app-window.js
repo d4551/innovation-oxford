@@ -178,9 +178,15 @@ class AppWindow {
     this.onResize();
   }
 
+  /**
+   * Taskbar button behaviour: open if closed, restore if minimized, raise if
+   * merely covered, and minimize only when it is already the front window.
+   */
   toggleFromTaskbar() {
     if (!this.windowEl) { this.open(); return; }
-    if (this.isHidden) this.restore(); else this.minimize();
+    if (this.isHidden) { this.restore(); return; }
+    if (!windowManager.isTopmost(this.windowEl)) { this.activate(); return; }
+    this.minimize();
   }
 
   close() {

@@ -82,6 +82,23 @@ class WindowManager {
   }
 
   /**
+   * Is this the frontmost visible window?
+   *
+   * The taskbar needs to know: clicking the button for a window that is merely
+   * covered should raise it, not hide it. That matters most in compact mode,
+   * where every window is full-bleed — a covered window is completely invisible
+   * and minimizing it is the opposite of what the user asked for.
+   */
+  isTopmost(win) {
+    if (!win || win.classList.contains('window--hidden')) return false;
+    const z = parseInt(win.style.zIndex, 10) || 0;
+    return !Array.from(document.querySelectorAll('.desktop .window')).some((other) => {
+      if (other === win || other.classList.contains('window--hidden')) return false;
+      return (parseInt(other.style.zIndex, 10) || 0) > z;
+    });
+  }
+
+  /**
    * Create a standard Win95-style window shell with title bar and body.
    * Returns { windowEl, titleBar, body, controls }.
    */
