@@ -50,8 +50,17 @@ def build(key: str, config: dict) -> None:
         raise SystemExit(f"missing game directory: {src_dir}")
 
     command = config["command"]
-    conf = (TEMPLATE_DIR / "dosbox.conf.tmpl").read_text().replace("{command}", command)
-    descriptor = (TEMPLATE_DIR / "jsdos.json.tmpl").read_text().replace("{command}", command)
+    template = (TEMPLATE_DIR / "dosbox.conf.tmpl").read_text()
+    # The template is captured from js-dos's own output, so it is easy to
+    # regenerate it and lose the placeholder — which silently gives every game
+    # the same autoexec. Fail instead.
+    if "{command}" not in template:
+        raise SystemExit(
+            f"{TEMPLATE_DIR / 'dosbox.conf.tmpl'} has no {{command}} placeholder; "
+            "its [autoexec] would start the same program for every game"
+        )
+    conf = template.replace("{command}", command)
+    descriptor = (TEMPLATE_DIR / "jsdos.json.tmpl").read_text()
     readme = (TEMPLATE_DIR / "readme.txt").read_text()
 
     entry = src_dir / command

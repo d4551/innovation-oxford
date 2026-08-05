@@ -15,7 +15,9 @@ const BROWSER_GLOBALS = [
 ];
 
 // Provided by vendored third-party bundles.
-const VENDOR_GLOBALS = ['Howl', 'Howler', 'Terminal', 'FitAddon', 'Dos', 'emulators'];
+// `Dos`/`emulators` are deliberately absent: js-dos runs inside
+// vendor/jsdos/player.html, not in the page.
+const VENDOR_GLOBALS = ['Howl', 'Howler', 'Terminal', 'FitAddon'];
 
 // Declared in one file of this project and consumed in others.
 const PROJECT_GLOBALS = [

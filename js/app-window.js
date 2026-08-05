@@ -21,6 +21,9 @@ class AppWindow {
       height = 400,
       controls = { minimize: true, maximize: true, close: true },
       resizable = true,
+      // Set by apps whose manager creates a new instance for each launch, so
+      // closing really does dispose of the object.
+      forgetOnClose = false,
     } = options;
 
     this.id = id;
@@ -32,6 +35,7 @@ class AppWindow {
     this.preferredHeight = height;
     this.controlsConfig = controls;
     this.resizable = resizable;
+    this.forgetOnClose = forgetOnClose;
 
     this.windowEl = null;
     this.bodyEl = null;
@@ -197,6 +201,10 @@ class AppWindow {
     this.bodyEl = null;
     this.titleBarEl = null;
     if (window.taskbarManager && this.id) window.taskbarManager.remove(this.id);
+    // Managers that build a fresh instance per launch (the DOS games) would
+    // otherwise leave every closed window in the registry for ever, and
+    // Show Desktop would walk a list that only grows.
+    if (this.forgetOnClose) AppWindow.instances.delete(this);
   }
 
   // ---------- conveniences for subclasses ----------

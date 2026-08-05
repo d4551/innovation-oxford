@@ -7,7 +7,7 @@ in the browser from static files.
 No build step, no framework, no CDN, no tracking. Open `index.html` and it runs.
 
 The first load is ~306KB across 25 requests. The terminal engine (~480KB) and
-the DOS runtime (~3.9MB) are fetched only when you actually open a prompt or a
+the DOS runtime (~2.3MB) are fetched only when you actually open a prompt or a
 game, so most visitors never download them.
 
 ## Running it
@@ -80,7 +80,7 @@ js/
   chat-manager.js          messenger
   mail-manager.js          mail + compose
   terminal-manager.js      xterm.js prompt
-  msdos-manager.js         js-dos wrapper + game windows
+  msdos-manager.js         DOS game shelf + player frame windows
   media-player-manager.js  audio/video player
   ie-manager.js            fake browser
   paint-manager.js         paint
@@ -91,7 +91,8 @@ js/
   clipart.js               inline SVG clipart
   slides-data.js           slide deck content
 vendor/                    all third-party code (see vendor/VERSIONS.md)
-tools/                     build script for the DOS game bundles
+  jsdos/player.html        the page the DOS games run inside
+tools/                     build + verify scripts for the DOS game bundles
 ```
 
 ### The window lifecycle
@@ -109,13 +110,22 @@ styles written by dragging and resizing.
 ## Checks
 
 ```sh
-npx eslint js/ main.js      # config in eslint.config.mjs
+npx eslint js/ main.js               # config in eslint.config.mjs
+python3 tools/check-jsdos-bundles.py # each game bundle starts the program it names
 ```
 
-The site was verified with Playwright at 1440x900, 820x1180 and 390x844:
-every app clicked and typed through, plus axe-core scans (WCAG 2.0/2.1/2.2 A
-and AA, and best-practice) on the sign-in screen, the bare desktop and with
-every app open. Zero violations, zero console errors, zero horizontal overflow.
+The site was verified in a real browser at 1440x900, 820x1180 and 390x844 —
+every app clicked, dragged and typed through with genuine mouse, touch and
+keyboard input rather than scripted calls into the page — plus axe-core scans
+(WCAG 2.0/2.1/2.2 A and AA, and best-practice) on the sign-in screen, the bare
+desktop, with every app open, and inside the DOS player with its sidebar,
+settings, speed panel and on-screen keyboard open. Zero violations, zero console
+errors, zero horizontal overflow.
+
+The DOS player's own controls are held to the same bar as the rest of the app:
+role, accessible name, focus ring, 24px target and keyboard operation. js-dos
+ships none of those, so `vendor/jsdos/player.html` adds them — see
+[`vendor/VERSIONS.md`](vendor/VERSIONS.md).
 
 Only Chromium is available in the environment used for those runs, so Firefox
 and Safari have not been exercised automatically. Nothing in the code is
@@ -131,15 +141,20 @@ and is unaffected by CDN outages. Versions and refresh instructions are in
 
 ## The DOS game bundles
 
-`games/*.jsdos` are built from the plain game directories:
+`games/*.jsdos` are built from the plain game directories, then verified:
 
 ```sh
 python3 tools/build-jsdos-bundles.py
+python3 tools/check-jsdos-bundles.py
 ```
 
 They need js-dos metadata (`.jsdos/dosbox.conf`, `.jsdos/readme.txt`,
 `.jsdos/jsdos.json`, and an explicit `.jsdos/` directory entry) that a plain zip
-does not have. See `vendor/VERSIONS.md` for the full story.
+does not have. The check is worth running every time: a bundle can be perfectly
+well-formed and still boot to nothing but a DOS prompt, because its `[autoexec]`
+names a program that is not in the archive — and nothing visible in the player
+tells you which of the two you are looking at. See `vendor/VERSIONS.md` for the
+full story.
 
 ## Keyboard shortcuts
 

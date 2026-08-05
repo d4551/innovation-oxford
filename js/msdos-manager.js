@@ -1,8 +1,15 @@
 // ============================================
 // MS-DOS MANAGER MODULE
-// Wraps the vendored js-dos (DOSBox) runtime so classic games run in their own
-// windows. The runtime is ~8MB, so it is injected lazily on first launch
-// rather than loaded with the page.
+// Wraps the vendored js-dos 8 runtime so classic games run in their own windows.
+//
+// The emulator itself lives in vendor/jsdos/player.html, loaded into an iframe
+// on first launch — see that file for why it is isolated. Nothing about js-dos
+// (its ~2MB runtime, its stylesheet, its document-level listeners) is loaded
+// until someone actually opens a game.
+//
+// js-dos 8 supplies its own in-window chrome — save state, on-screen keyboard,
+// fullscreen, speed, settings — which is what makes these games playable on a
+// phone at all.
 // ============================================
 
 const DOS_GAMES = {
@@ -10,6 +17,9 @@ const DOS_GAMES = {
   oregon: { id: 'oregon', title: 'The Oregon Trail', resource: 'games/oregon.jsdos' },
 };
 const JSDOS_BASE = 'vendor/jsdos/';
+// js-dos runs inside this frame; see the comment at the top of player.html for
+// why it is not mounted directly in the page.
+const JSDOS_PLAYER = `${JSDOS_BASE}player.html`;
 
 class DosGameWindow extends AppWindow {
   constructor(manager, config) {
@@ -18,27 +28,32 @@ class DosGameWindow extends AppWindow {
       title: config.title,
       className: 'dos-window',
       iconClass: 'term-icon',
-      width: 680,
-      height: 520,
+      width: 720,
+      height: 560,
       controls: { minimize: true, maximize: true, close: true },
+      // The manager builds a fresh window per launch, so closing must dispose
+      // of this one rather than leave it in the registry.
+      forgetOnClose: true,
     });
     this.manager = manager;
     this.config = config;
-    this.emulator = null;
-    this.commandInterface = null;
+    this.frame = null;
+    this.booted = false;
+    this.bootTimer = null;
+    this.onPlayerMessage = (e) => this.handlePlayerMessage(e);
   }
 
   renderBody(body) {
     body.classList.add('dos-body');
-    // js-dos lays out its own flex tree and absolutely-positioned overlays
-    // inside this element, so it must stay a plain positioned block. Status
-    // text lives in a sibling overlay rather than as a child text node.
+    // js-dos mounts its own layout and absolutely-positioned layers inside this
+    // element, so it must stay a plain positioned block with a definite size.
     this.container = document.createElement('div');
     this.container.className = 'dos-canvas';
     this.status = document.createElement('div');
     this.status.className = 'dos-status';
     this.status.textContent = 'Loading DOS environment…';
     body.append(this.container, this.status);
+    window.addEventListener('message', this.onPlayerMessage);
     this.run();
   }
 
@@ -49,31 +64,51 @@ class DosGameWindow extends AppWindow {
   }
 
   run() {
-    if (typeof Dos === 'undefined') {
-      this.setStatus('Loading DOS runtime…');
-      this.manager.loadRuntime()
-        .then(() => this.run())
-        .catch((err) => this.showError(err?.message || 'Unable to load the DOS runtime.'));
+    this.setStatus('Loading DOS environment…');
+    this.container.replaceChildren();
+
+    const frame = document.createElement('iframe');
+    frame.className = 'dos-frame';
+    frame.title = `${this.config.title} — DOS player`;
+    // The bundle travels in the frame's name rather than its query string:
+    // one stable player URL, and no encoded absolute URL to read past in the
+    // address of every frame. Set before `src`, which is what navigates.
+    frame.name = this.manager.resolveAsset(this.config.resource);
+    frame.src = JSDOS_PLAYER;
+    // The player needs these to offer fullscreen and to make any sound.
+    frame.allow = 'fullscreen; autoplay; gamepad';
+    frame.addEventListener('error', () => this.showError('Could not load the DOS player.'));
+    this.container.appendChild(frame);
+    this.frame = frame;
+
+    // Nothing arrived after a generous wait: report it instead of sitting on a
+    // spinner for ever.
+    this.bootTimer = setTimeout(() => {
+      if (!this.booted) this.showError('The DOS player did not start. Try again.');
+    }, 90000);
+  }
+
+  /** Messages from the player frame (same-origin, and identified by source). */
+  handlePlayerMessage(e) {
+    if (e.origin !== window.location.origin) return;
+    if (!e.data || e.data.source !== 'jsdos-player') return;
+    if (!this.frame || e.source !== this.frame.contentWindow) return;
+
+    if (e.data.type === 'error') {
+      this.showError(e.data.detail || 'The DOS player reported an error.');
       return;
     }
-
-    try {
-      this.manager.configureRuntimePaths();
-      // js-dos renders its own loader; hide ours so the two do not overlap.
+    if (e.data.type === 'event' && (e.data.detail === 'emu-ready' || e.data.detail === 'ci-ready')) {
+      this.booted = true;
+      clearTimeout(this.bootTimer);
       this.setStatus('');
-      this.container.replaceChildren();
-      this.emulator = Dos(this.container, {});
-      const resourceUrl = this.manager.resolveAsset(this.config.resource);
-      this.emulator.run(resourceUrl)
-        .then((ci) => { this.commandInterface = ci; })
-        .catch((err) => {
-          console.error('MSDosManager: game execution failed', err, { resourceUrl });
-          this.showError(err?.message || 'Unable to launch this DOS program.');
-        });
-    } catch (err) {
-      console.error('MSDosManager: emulator creation failed', err);
-      this.showError(err?.message || 'Unable to initialise the DOS emulator.');
     }
+  }
+
+  postToPlayer(type) {
+    try {
+      this.frame?.contentWindow?.postMessage({ source: 'jsdos-host', type }, window.location.origin);
+    } catch (_) { /* frame gone */ }
   }
 
   showError(message) {
@@ -92,23 +127,32 @@ class DosGameWindow extends AppWindow {
     `;
     wrap.querySelector('.dos-error__msg').textContent = message;
     wrap.querySelector('[data-act="retry"]').addEventListener('click', () => {
-      this.container.replaceChildren();
-      this.setStatus('Loading DOS environment…');
+      this.booted = false;
+      clearTimeout(this.bootTimer);
       this.run();
     });
     wrap.querySelector('[data-act="close"]').addEventListener('click', () => this.close());
     this.container.appendChild(wrap);
   }
 
+  onHide() {
+    // A minimized game should not keep burning CPU and playing sound.
+    this.postToPlayer('pause');
+  }
+
+  onShow() {
+    this.postToPlayer('resume');
+  }
+
   onClose() {
-    try {
-      if (this.commandInterface?.exit) this.commandInterface.exit();
-      else if (this.emulator?.stop) this.emulator.stop();
-    } catch (err) {
-      console.warn('MSDosManager: emulator shutdown failed', err);
-    }
-    this.emulator = null;
-    this.commandInterface = null;
+    clearTimeout(this.bootTimer);
+    window.removeEventListener('message', this.onPlayerMessage);
+    // Removing the frame destroys the emulator, its worker, its audio graph and
+    // its listeners in one step — a more complete teardown than any API call.
+    this.postToPlayer('stop');
+    this.frame?.remove();
+    this.frame = null;
+    this.booted = false;
     this.manager.instances.delete(this.config.id);
   }
 }
@@ -146,9 +190,14 @@ class DosLibraryWindow extends AppWindow {
       grid.appendChild(item);
     });
     Utils.on(grid, 'click', '.dos-library__item', (e) => this.manager.open(e.currentTarget.dataset.game));
-    // Pointing at an entry is a strong hint; start fetching that bundle early.
-    Utils.on(grid, 'pointerenter', '.dos-library__item', (e) => this.manager.prefetchGame(e.currentTarget.dataset.game), true);
-    Utils.on(grid, 'focusin', '.dos-library__item', (e) => this.manager.prefetchGame(e.currentTarget.dataset.game));
+    // There is deliberately no hover/focus prefetch of the bundles here. It
+    // was measured and it did not work: `pointerenter` fires on these buttons
+    // the moment the shelf is inserted — no pointer anywhere near them — so
+    // it downloaded a game nobody asked for; and the hint was never reused,
+    // because the player frame fetches the bundle from its own document. The
+    // net effect was 1.8MB of speculative traffic plus a full second copy of
+    // whatever did get launched. The runtime is warmed instead, which the
+    // frame does reuse.
   }
 }
 
@@ -158,48 +207,38 @@ class MSDosManager {
     this.instances = new Map();
     this.library = null;
     this.assetCache = new Map();
-    this.preloadLinks = new Set();
-    this.runtimeLoading = null;
-  }
-
-  /**
-   * Point the emulator loader at our vendored runtime.
-   *
-   * The loader resolves `wdosbox.js`, `wdosbox.wasm` and `wlibzip.*` against
-   * `pathPrefix`, which defaults to "" — i.e. the site root. Without this every
-   * runtime asset 404s and no game can start.
-   */
-  configureRuntimePaths() {
-    if (typeof emulators === 'undefined') return;
-    emulators.pathPrefix = JSDOS_BASE;
+    this.runtimePrefetched = false;
   }
 
   init() {
-    // Do not eagerly load the ~8MB runtime; wait for a real launch.
+    // Do not eagerly load the runtime; wait for a real launch.
   }
 
   /**
-   * Load the js-dos runtime on first launch.
+   * Warm the two files the player frame loads — ~440KB at idle priority,
+   * verified served from cache when the frame actually loads.
    *
-   * Deliberately script-only: `vendor/jsdos/js-dos.css` styles a player that
-   * owns the whole viewport, and inside a small draggable window it pushes the
-   * emulator's "press to start" overlay off-screen. The runtime ships its own
-   * inline styling for the parts we use, so the games render correctly without
-   * it — and it is 36KB we never send.
+   * No `as` attribute: without it the responses land in the ordinary HTTP
+   * cache, which the frame's own requests hit. `as="fetch"` routes them
+   * somewhere the frame never looks. player.html itself is not listed for the
+   * same reason: a prefetched document is only offered to top-level
+   * navigations, never to a frame, so the hint would be dead weight.
    */
-  loadRuntime() {
-    if (typeof Dos !== 'undefined') return Promise.resolve();
-    if (!this.runtimeLoading) {
-      this.runtimeLoading = Utils.loadScript('jsdos-core', `${JSDOS_BASE}js-dos.js`)
-        .catch((err) => {
-          this.runtimeLoading = null;
-          throw err;
-        });
-    }
-    return this.runtimeLoading;
+  prefetchRuntime() {
+    if (this.runtimePrefetched) return;
+    this.runtimePrefetched = true;
+    const head = document.head || document.getElementsByTagName('head')[0];
+    if (!head) return;
+    [`${JSDOS_BASE}js-dos.js`, `${JSDOS_BASE}js-dos.css`].forEach((href) => {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = href;
+      head.appendChild(link);
+    });
   }
 
   openLibrary() {
+    this.prefetchRuntime();
     if (!this.library) this.library = new DosLibraryWindow(this);
     return this.library.open();
   }
@@ -210,30 +249,13 @@ class MSDosManager {
       console.warn(`MSDosManager: unknown game key "${gameKey}"`);
       return null;
     }
-    this.prefetchGame(gameKey);
+    this.prefetchRuntime();
     let instance = this.instances.get(gameKey);
     if (!instance) {
       instance = new DosGameWindow(this, config);
       this.instances.set(gameKey, instance);
     }
     return instance.open();
-  }
-
-  /**
-   * Warm the cache for a game's bundle. Each is ~1.8MB, so only the game the
-   * user is actually heading for is prefetched, never the whole shelf.
-   */
-  prefetchGame(gameKey) {
-    const game = this.games[gameKey];
-    const head = document.head || document.getElementsByTagName('head')[0];
-    if (!game || !head || this.preloadLinks.has(game.resource)) return;
-    const link = document.createElement('link');
-    link.rel = 'prefetch';
-    link.href = this.resolveAsset(game.resource);
-    link.as = 'fetch';
-    link.crossOrigin = 'anonymous';
-    head.appendChild(link);
-    this.preloadLinks.add(game.resource);
   }
 
   resolveAsset(path) {

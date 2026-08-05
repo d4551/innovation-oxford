@@ -10,8 +10,8 @@ rotate and no third-party can observe visitors.
 | Terminal | [`@xterm/xterm`](https://www.npmjs.com/package/@xterm/xterm) | 6.0.0 | `vendor/xterm/xterm.js`, `vendor/xterm/xterm.css` |
 | Terminal auto-fit | [`@xterm/addon-fit`](https://www.npmjs.com/package/@xterm/addon-fit) | 0.11.0 | `vendor/xterm/addon-fit.js` |
 | Audio | [`howler`](https://www.npmjs.com/package/howler) | 2.2.4 | `vendor/howler/howler.core.min.js` |
-| DOS emulator UI | [`js-dos`](https://js-dos.com/) | 6.22.60 | `vendor/jsdos/js-dos.js` |
-| DOS emulator runtime | [`emulators`](https://www.npmjs.com/package/emulators) | 0.73.4 | `vendor/jsdos/wdosbox.*`, `vendor/jsdos/wlibzip.*` |
+| DOS player | [`js-dos`](https://js-dos.com/) | 8.4.1 | `vendor/jsdos/js-dos.js`, `vendor/jsdos/js-dos.css` |
+| DOS emulator runtime | [`emulators`](https://www.npmjs.com/package/emulators) | ships inside js-dos 8.4.1 | `vendor/jsdos/emulators/` |
 
 ## Refreshing
 
@@ -25,34 +25,97 @@ cp node_modules/howler/dist/howler.core.min.js    vendor/howler/howler.core.min.
 
 Then update the version numbers above.
 
-## The DOS emulator
+## The DOS player
 
-`js-dos.js` (the loader and UI) embeds the `emulators` runtime API and reports the
-exact runtime build it expects: `0.73.4 (75ba991718455e71b643a068b675e327)`. The
-runtime files must be that same build, so `emulators` is pinned to 0.73.4 rather
-than tracking latest:
+js-dos 8 ships the loader, the UI and the emulator runtime together, so there is
+no separate `emulators` pin to keep in step any more. Only the plain DOSBox
+backend is vendored — DOSBox-X is 7.9MB of WebAssembly against 1.4MB and neither
+of these titles needs it — and `player.html` passes `backendLocked: true` so the
+settings panel cannot switch to a backend that is not on disk.
 
 ```sh
-npm i emulators@0.73.4
-cp node_modules/emulators/dist/{wdosbox.js,wdosbox.wasm,wdosbox.shared.js,wdosbox.shared.wasm,wdosbox.shared.worker.js,wlibzip.js,wlibzip.wasm} vendor/jsdos/
+npm i js-dos@latest
+cp node_modules/js-dos/dist/js-dos.js  vendor/jsdos/js-dos.js
+cp node_modules/js-dos/dist/js-dos.css vendor/jsdos/js-dos.css
+mkdir -p vendor/jsdos/emulators
+cp node_modules/js-dos/dist/emulators/{emulators.js,wdosbox.js,wdosbox.wasm,wlibzip.js,wlibzip.wasm} \
+   vendor/jsdos/emulators/
 ```
 
-Three things must line up for a game to start, and all three were broken before:
+After any upgrade, rebuild and verify the bundles, then run the interaction
+suite: the player's own controls are patched by class name, and a version that
+renames them must fail loudly rather than silently lose its labels.
 
-1. **`emulators.pathPrefix`** must point at `vendor/jsdos/`. It defaults to `""`,
-   so the runtime asks the *site root* for `wdosbox.wasm` and 404s. Now set in
-   `MSDosManager.configureRuntimePaths()`.
-2. **The runtime must be complete.** `wlibzip.js` / `wlibzip.wasm` perform bundle
-   extraction; they were missing, so no bundle could be read.
-3. **The bundles need js-dos metadata**, including an explicit `.jsdos/`
-   directory entry. See `tools/build-jsdos-bundles.py`.
+```sh
+python3 tools/build-jsdos-bundles.py
+python3 tools/check-jsdos-bundles.py
+```
 
-`js-dos.css` (and the loader image it referenced) are **not** shipped. That
-stylesheet lays out a player that owns the whole viewport; inside a small,
-draggable window it pushes the emulator's "press to start" overlay off-screen.
-The runtime styles the parts we use inline, so the games render correctly
-without it. Both files are recoverable from git history if the full-page player
-layout is ever wanted.
+### Why the player runs in an iframe
 
-Upgrading js-dos to 8.x means a different loader API *and* a different bundle
-format, so it is a deliberate migration rather than a version bump.
+`vendor/jsdos/player.html` hosts js-dos; the app embeds that page rather than
+mounting the emulator directly. Two reasons, both measured:
+
+1. **`js-dos.css` is a full Tailwind build, preflight included.** Dropped into
+   the page, `*,:before,:after{border-width:0}` strips the borders the entire
+   Windows 95 look is built from. The app survived it only because our class
+   selectors happened to out-rank `*` — luck, not isolation.
+2. **Its layout assumes it owns the document.** Inside an app window it escaped
+   its container and covered the title bar.
+
+A same-origin frame gives js-dos the whole viewport it expects and gives the app
+back a hard boundary. Closing the window removes the frame, which destroys the
+emulator, its worker, its audio graph and its listeners in one step — a more
+complete teardown than any API call. The host talks to it over `postMessage`
+(`pause` / `resume` / `stop` out; `ready`, `event`, `error` back) and passes the
+bundle URL in the frame's `name` rather than its query string, so the player has
+one stable URL.
+
+### What player.html fixes on js-dos's behalf
+
+js-dos draws every control in its sidebar as a bare `<div>` with a click
+handler. As shipped that is three separate failures, in the only UI a player has
+for saving, speed, full screen and the on-screen keyboard:
+
+- **WCAG 2.1.1 Keyboard (A)** — no tab stop and no key handling, so none of it
+  can be reached without a mouse.
+- **WCAG 4.1.2 Name, Role, Value (A)** — no role and no accessible name: on the
+  six sidebar controls, on the soft keyboard's 55 keys, and on every toggle,
+  radio and select in the settings and speed panels.
+- **WCAG 2.5.8 Target Size (AA)** — the collapsed rail is 16px wide and the
+  speed panel's radios are 20×20.
+
+`player.html` upgrades the nodes in place as they appear — via a
+`MutationObserver`, because js-dos rebuilds the sidebar as emulator state
+changes — rather than patching a 320KB minified bundle. Each rule is keyed on
+something js-dos renders deliberately: a class it sets, or the icon it draws.
+The interaction suite then asserts that every control ends up with a role, a
+name, a focus ring and a 24px target, so a version that renames things fails a
+test instead of quietly regressing.
+
+The soft keyboard's keys get roles and names but are deliberately kept out of
+the tab order: typing already works from a real keyboard, so 55 extra tab stops
+would cost every keyboard user something and gain them nothing, while assistive
+technology on a touch device reaches them anyway. Those keys answer to pointer
+events only, so keyboard activation synthesises `pointerdown`/`pointerup`
+instead of a click.
+
+On a touch device the sidebar starts expanded rather than collapsed. Both games
+open on a prompt that wants a keypress, and there the on-screen keyboard behind
+that rail is the only keyboard there is.
+
+## The game bundles
+
+`games/*.jsdos` are built by `tools/build-jsdos-bundles.py` from the plain game
+directories. A bundle needs its own metadata — `.jsdos/dosbox.conf`,
+`.jsdos/readme.txt`, `.jsdos/jsdos.json`, and an explicit `.jsdos/` **directory**
+entry, without which the config never lands on the emulated filesystem and
+DOSBox exits 101 before printing anything.
+
+`tools/check-jsdos-bundles.py` verifies that each bundle's `[autoexec]` names a
+program the archive actually contains. That is not a theoretical check: a bundle
+can be perfectly well-formed and still boot to nothing but a DOS prompt, and
+nothing visible in the player distinguishes the two. Measured against a bundle
+with a missing program, DOSBox's own welcome banner scored *higher* on colour
+and on frame-to-frame change than either real game, and its video mode matched
+Civilization's own text menu.
