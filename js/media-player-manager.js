@@ -148,6 +148,7 @@ class MediaPlayerManager extends AppWindow {
     this.windowEl.classList.toggle('media-player--video', type === 'video');
     this.visualEl.classList.toggle('hidden', type !== 'audio');
     if (this.trackTitleEl) this.trackTitleEl.textContent = titleOverride || this.extractFileName(src);
+    this.markCurrentTrack();
 
     this.setStatus('Loading');
     this.updateTimerDisplay();
@@ -464,8 +465,34 @@ class MediaPlayerManager extends AppWindow {
     if (!this.playlistEl) return;
     this.playlistEl.innerHTML = this.playlist.map((it, idx) => {
       const file = Utils.escapeHtml(it.name || this.extractFileName(it.path));
-      return `<div class="pl-item" role="option" tabindex="0" data-idx="${idx}" title="${file}">${file}</div>`;
+      return `<div class="pl-item" role="option" tabindex="0" aria-selected="false" data-idx="${idx}" id="wmp-track-${idx}" title="${file}">${file}</div>`;
     }).join('');
+    this.markCurrentTrack();
+  }
+
+  /**
+   * Show which track is loaded. The list is a `listbox` whose options never
+   * carried `aria-selected`, so nothing — on screen or in the accessibility
+   * tree — said which of them you were listening to.
+   */
+  markCurrentTrack() {
+    if (!this.playlistEl) return;
+    let selectedId = '';
+    this.playlistEl.querySelectorAll('.pl-item').forEach((el) => {
+      const item = this.playlist[Number(el.dataset.idx)];
+      const current = !!item && !!this.currentSource && this.resolvePath(item.path) === this.resolvePath(this.currentSource);
+      el.classList.toggle('pl-item--current', current);
+      el.setAttribute('aria-selected', current ? 'true' : 'false');
+      if (current) selectedId = el.id;
+    });
+    if (selectedId) this.playlistEl.setAttribute('aria-activedescendant', selectedId);
+    else this.playlistEl.removeAttribute('aria-activedescendant');
+  }
+
+  /** Compare playlist paths and media sources on equal footing. */
+  resolvePath(path) {
+    if (!path) return '';
+    try { return new URL(path, document.baseURI).href; } catch (_) { return path; }
   }
 
   // Taskbar click with no window open should start the default clip.

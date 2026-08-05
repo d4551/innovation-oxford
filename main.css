@@ -510,11 +510,18 @@ img, svg, video, canvas { max-width: 100%; }
   margin-bottom: 8px;
 }
 
+/* Yellow on white measures 1.5:1 — the red drop shadow carries the letter
+   shapes but the fill itself is barely there. On the navy plate the original
+   used, the same yellow is 8.9:1 and the wordmark reads at a glance. */
 .aim-logo-text {
+  display: inline-block;
   color: #ffcc00;
+  background: #000080;
+  padding: 2px 10px;
   font-size: 18px;
   font-weight: bold;
-  text-shadow: 2px 2px #ff0000, -1px -1px #0000ff;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px #ff0000, -1px -1px #4d6dff;
 }
 
 .buddy-group {
@@ -566,7 +573,10 @@ img, svg, video, canvas { max-width: 100%; }
 .buddy-item.active:hover { background: var(--w95-select); }
 
 .buddy-item[disabled] {
-  color: var(--w95-face-dark);
+  /* Not --w95-face-dark (#808080): that is 3.95:1 on the list's white, under
+     the 4.5:1 minimum, and these names are 11px. Still visibly dimmer than an
+     online buddy, but readable. */
+  color: #6e6e6e;
   opacity: 1;
 }
 
@@ -1047,6 +1057,9 @@ img, svg, video, canvas { max-width: 100%; }
 .mail-window .mail-columns > * { min-width: 0; overflow-wrap: anywhere; }
 .mail-window .mail-list-item .subject { font-size: 12px; }
 .mail-window .mail-list-item .date { font-size: 11px; color: #404040 !important; text-align: right; }
+/* The selected row turns navy; without this the date stayed #404040 on it —
+   1.5:1, effectively gone. `!important` because the rule above carries one. */
+.mail-window .mail-list-item.active .date { color: #ffffff !important; }
 .mail-window .mail-reader { grid-area: reader; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: visible; border: 1px solid #808080; background: #ffffff; position: relative; z-index: 2; }
 .mail-window .mail-reader-header { padding: 6px; border-bottom: 1px solid #808080; background: #cfcfcf; }
 .mail-window .mail-reader-header .hdr-row { font-size: 12px; }
@@ -1869,8 +1882,11 @@ img, svg, video, canvas { max-width: 100%; }
 .folder-window .title-bar-icon { background: #d9a441; position: relative; }
 .folder-window .title-bar-icon::before { content: ''; position: absolute; top: -2px; left: 2px; width: 8px; height: 4px; background: #e6c177; border: 1px solid #8b5a00; }
 .folder-window .folder-toolbar { padding: 4px 6px; background: #cfcfcf; border-bottom: 1px solid #808080; font-size: 11px; }
-.folder-window .folder-content { flex: 1; min-height: 0; overflow: auto; background: #ffffff; border-top: 1px solid #808080; display: grid; place-items: center; }
-.folder-window .folder-content .empty { font-size: 12px; color: #333; }
+/* `place-items: center` here centred the *file grid* too, so on a full-bleed
+   phone window the icons sat halfway down a tall empty white area. Files start
+   at the top, like every file listing; only the empty-folder message centres. */
+.folder-window .folder-content { flex: 1; min-height: 0; overflow: auto; background: #ffffff; border-top: 1px solid #808080; display: grid; align-content: start; }
+.folder-window .folder-content .empty { font-size: 12px; color: #333; place-self: center; padding: 24px; }
 .folder-window .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; width: 100%; padding: 10px; place-items: stretch; }
 .folder-window > .window-body .files-grid > li { display: block; }
 .folder-window .file-item { width: 100%; background: none; font: inherit; color: inherit; display: grid; grid-template-rows: 64px auto; align-items: center; justify-items: center; gap: 6px; cursor: default; padding: 6px; border: 1px solid transparent; }
@@ -1918,6 +1934,11 @@ img, svg, video, canvas { max-width: 100%; }
 .media-player-window .wmp-playlist { margin-top: 8px; flex: 0 1 auto; min-height: 0; max-height: 120px; overflow: auto; background: #ffffff; border: 1px solid #808080; padding: 4px; }
 .media-player-window .wmp-playlist .pl-item { font-size: 11px; padding: 4px; min-height: var(--tap); display: flex; align-items: center; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .media-player-window .wmp-playlist .pl-item:hover { background: #e6f2ff; }
+/* Which track is loaded. Two signals, not one, so it survives a colour-blind
+   reader and a high-contrast forced palette alike. */
+.media-player-window .wmp-playlist .pl-item--current { background: #000080; color: #ffffff; font-weight: 700; }
+.media-player-window .wmp-playlist .pl-item--current::before { content: '▶ '; }
+.media-player-window .wmp-playlist .pl-item--current:hover { background: #000080; }
 /* Paint window */
 .paint-window .window-body { display: flex; flex-direction: column; min-height: 0; }
 .paint-window .paint-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px; background: #cfcfcf; border-bottom: 1px solid #808080; }
