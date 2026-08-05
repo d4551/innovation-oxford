@@ -93,6 +93,12 @@ The interaction suite then asserts that every control ends up with a role, a
 name, a focus ring and a 24px target, so a version that renames things fails a
 test instead of quietly regressing.
 
+Tabbing into the frame used to land on the sidebar, where Enter and Space
+activate a button — two keys these games need. The game surface is not
+focusable in js-dos at all, so `player.html` makes the canvas a focus target
+with `role="application"`, which both puts the game first in the frame's tab
+order and tells assistive technology to pass keystrokes straight through.
+
 The soft keyboard's keys get roles and names but are deliberately kept out of
 the tab order: typing already works from a real keyboard, so 55 extra tab stops
 would cost every keyboard user something and gain them nothing, while assistive

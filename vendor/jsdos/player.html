@@ -185,6 +185,21 @@
       }
 
       function upgradeControls() {
+        // The game surface itself is not focusable in js-dos, so tabbing into
+        // this frame landed on the sidebar — where Enter and Space activate a
+        // button instead of reaching DOSBox, and those are keys games need.
+        // The canvas comes before the sidebar in the DOM, so making it
+        // focusable puts the game first in the tab order, where it belongs.
+        var screenEl = document.querySelector('canvas');
+        if (screenEl && screenEl.dataset.a11y !== '1') {
+          screenEl.dataset.a11y = '1';
+          screenEl.setAttribute('tabindex', '0');
+          // `application` tells assistive technology to pass keystrokes
+          // straight through, which is the only way an emulator can work.
+          screenEl.setAttribute('role', 'application');
+          screenEl.setAttribute('aria-label', 'Game screen — keyboard input goes to the game');
+        }
+
         upgrade(document.querySelector('.sidebar-thin > div'), 'Show player controls', true);
         var buttons = document.querySelectorAll('.sidebar-button');
         for (var i = 0; i < buttons.length; i++) upgrade(buttons[i], labelFor(buttons[i]), true);
