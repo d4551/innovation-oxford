@@ -1961,10 +1961,14 @@ img, svg, video, canvas { max-width: 100%; }
 .mail-window .btn-95[disabled] { color: var(--w95-face-dark); }
 .mail-window .sent-body { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; }
 
-/* Compose window */
-.desktop > .window.compose-window > .window-body { padding: 8px; }
+/* Compose window.
+   The form carries its own padding rather than asking the window body for it:
+   shell-built windows deliberately zero that padding so each app lays out its
+   own chrome, and with `:not()` in the selector that rule out-ranks anything
+   an app adds back. Without this the fields sat flush against the window
+   border on every side. */
 .compose-window .compose-body { width: 100%; flex: 1; min-height: 120px; resize: none; font-family: var(--font-ui); }
-.compose-window .form-95 { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+.compose-window .form-95 { display: flex; flex-direction: column; height: 100%; gap: 6px; padding: 8px; }
 .compose-window .form-95 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; }
 .compose-window .form-95 .row label { width: 60px; margin-bottom: 0; flex: 0 0 60px; }
 .compose-window .compose-actions { display: flex; gap: 6px; justify-content: flex-end; }
