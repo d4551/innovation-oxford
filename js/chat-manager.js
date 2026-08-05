@@ -1,614 +1,462 @@
 // ============================================
 // CHAT MANAGER MODULE
-// Handles all chat/messaging functionality
+// The AIM half of the app: a buddy list plus an instant-message window.
+// The roster, colours and reply personalities all come from js/buddies.js.
 // ============================================
 
+const CHAT_STORAGE_KEY = 'aim.chat.v2';
+const YOU_COLOR = '#0000ff';
+const TYPING_MIN_MS = 900;
+const TYPING_SHOW_DELAY_MS = 400;
+
 class ChatManager {
-    constructor(audioManager) {
-        this.audioManager = audioManager;
-        this.currentChatUser = null;
-        this.autoReplyDelay = 2000;
-        this.typingMinMs = 900; // minimum visible typing time
-        this.typingShowDelayMs = 400; // delay before showing typing to avoid flicker
-        this.typingTimeoutId = null;
-        this.typingEl = null;
-        this.typingForUserKey = null;
-        this.typingShowTimerId = null;
-        this.taskbarId = 'chat';
-        this.taskbarEntry = null;
-        this.storageKey = 'aim.chat.v1';
-        this.state = { conversations: {}, currentUser: null, meta: { counters: {}, thresholds: {}, delivered: {}, lastFillerIdx: {}, fillerBags: {}, colors: {} } };
-        
-        this.responses = [
-            'lol nice!',
-            'yeah totally!',
-            'omg really??',
-            'brb mom calling',
-            'a/s/l? jk jk',
-            'check out my away message!',
-            'cool cool',
-            'haha for real',
-            'ttyl gotta go',
-            'sweet!'
-        ];
-        // Extra 90s-flavored commentary
-        this.responses90s = [
-            'hold up, dial-up is lagging 😅',
-            "napster's taking forever to download this track",
-            'just burned a mix CD lol',
-            'be right back — feeding my Tamagotchi',
-            'my AIM away msg is fire rn',
-            'new Geocities page just dropped 💾',
-            'ICQ went bloop bloop again 😂',
-            'Y2K bug? more like Y2-ok',
-            'BRB mom needs the phone line 😭',
-            'this Winamp skin slaps'
-        ];
-        // Special users final-link response config
-        // Map by lowercase keys for robust matching
-        this.specialUsers = {
-            'sepinator': 'https://www.linkedin.com/in/sepi-chakaveh/',
-            'selvatron': 'https://www.linkedin.com/in/rrselvakumar/',
-            'xmarktheneil99x': 'https://www.linkedin.com/in/mhneill/',
-            'xmarktheneill99x': 'https://www.linkedin.com/in/mhneill/',
-            'randobrando': 'https://www.linkedin.com/in/stracos/',
-            'randobrandon': 'https://www.linkedin.com/in/stracos/'
-        };
+  constructor(audioManager) {
+    this.audioManager = audioManager;
+    this.currentChatUser = null;
+    this.taskbarId = 'chat';
+    this.timers = { reply: null, showTyping: null };
+    this.typingEl = null;
+    this.state = {
+      conversations: {},
+      currentUser: null,
+      meta: { counters: {}, thresholds: {}, delivered: {}, fillerBags: {}, lastFillerIdx: {} },
+    };
+  }
 
-        // Per-buddy filler personality (normalized keys)
-        this.buddyFiller = {
-            'sepinator': [
-                'my AIM away msg is fire rn',
-                'zerg rush? kekeke',
-                'LAN party later — bring your CRT',
-                'installing Diablo II again lol',
-                'BRB mom needs the phone line 😭',
-                'custom Winamp skin looks so sick'
-            ],
-            'xmarktheneil99x': [
-                'top 8 drama on Myspace again 😂',
-                'new Geocities page — lots of iframes',
-                'blink tag is a vibe',
-                'switching my AIM font to Comic Sans',
-                'Napster queue at 97%... for the last hour',
-                'Winamp just “whips the llama’s…” you know the rest'
-            ],
-            'xmarktheneil99x': [
-                'top 8 drama on Myspace again 😂',
-                'new Geocities page — lots of iframes',
-                'blink tag is a vibe',
-                'switching my AIM font to Comic Sans',
-                'Napster queue at 97%... for the last hour',
-                'Winamp just “whips the llama’s…” you know the rest'
-            ],
-            'selvatron': [
-                'writing a bot for mIRC channels',
-                'charged my PalmPilot, stylus ready',
-                'TI-83 graphing weird art again lol',
-                'dot-com bubble memes are back',
-                'ICQ number memorized like a phone #',
-                'configuring RSS in my reader'
-            ],
-            'randobrando': [
-                'AOL keywords still slap',
-                'can’t stop hearing the dial-up tone',
-                'tamagotchi survived the day, barely',
-                'burning a new mix CD',
-                '3.5” floppies for the win',
-                'sharing pics on Photobucket like it’s 1999'
-            ],
-            'randobrandon': [
-                'AOL keywords still slap',
-                'can’t stop hearing the dial-up tone',
-                'tamagotchi survived the day, barely',
-                'burning a new mix CD',
-                '3.5” floppies for the win',
-                'sharing pics on Photobucket like it’s 1999'
-            ]
-        };
-    }
-    
-    init() {
-        // Set up message input event listener
-        const messageInput = document.getElementById('messageInput');
-        if (messageInput) {
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.sendMessage();
-                }
-            });
-        }
+  init() {
+    this.renderBuddyList();
+    this.bindChatWindow();
+    this.bindBuddyWindow();
+    this.registerTaskbar();
 
-        // Make chat window draggable and wire controls
-        const chatWindow = document.querySelector('.chat-window');
-        if (chatWindow) {
-            const titleBar = chatWindow.querySelector('.title-bar');
-            if (titleBar) {
-                windowManager.makeWindowDraggable(chatWindow, titleBar);
-                const buttons = titleBar.querySelectorAll('.title-bar-btn');
-                if (buttons && buttons.length >= 3) {
-                    // Minimize
-                    buttons[0].addEventListener('click', () => this.hide());
-                    // Maximize (optional): bring to front
-                    buttons[1].addEventListener('click', () => this.activate());
-                    // Close -> fully close (remove taskbar entry)
-                    buttons[2].addEventListener('click', () => this.close());
-                }
-            }
-        }
-
-        // Make buddy list draggable as well and wire its controls
-        const buddyWindow = document.querySelector('.buddy-list');
-        if (buddyWindow) {
-            const titleBar = buddyWindow.querySelector('.title-bar');
-            if (titleBar) {
-                windowManager.makeWindowDraggable(buddyWindow, titleBar);
-                const btns = Array.from(titleBar.querySelectorAll('.title-bar-btn'));
-                const minBtn = titleBar.querySelector('.title-bar-btn[data-action="min"]') || btns[0];
-                const closeBtn = titleBar.querySelector('.title-bar-btn[data-action="close"]') || btns[2];
-                const maxBtn = titleBar.querySelector('.title-bar-btn[data-action="max"]') || btns[1];
-                if (minBtn) minBtn.addEventListener('click', () => { buddyWindow.style.display = 'none'; });
-                if (maxBtn) maxBtn.addEventListener('click', () => this.activate());
-                if (closeBtn) closeBtn.addEventListener('click', () => this.close());
-            }
-        }
-
-        // Register taskbar entry for Oxford Messenger (Chat)
-        if (window.taskbarManager) {
-            this.taskbarEntry = window.taskbarManager.addWindow(this.taskbarId, 'Oxford', {
-                onToggle: () => this.toggleFromTaskbar(),
-                iconClass: 'chat-icon'
-            });
-            const chatWindow = document.querySelector('.chat-window');
-            const visible = chatWindow && getComputedStyle(chatWindow).display !== 'none';
-            window.taskbarManager.setActive(this.taskbarId, !!visible);
-        }
-
-        // Load previous state (persisted per-session)
-        this.loadState();
-        if (!Object.keys(this.state.conversations).length) {
-            this.seedFromDOM();
-            this.saveState();
-        }
-        // Ensure per-buddy color mapping exists for this session
-        this._ensureBuddyColors();
-        const defaultUser = this.state.currentUser || (document.getElementById('chatWith')?.textContent || null);
-        if (defaultUser) {
-            this.openChat(defaultUser, { restoreOnly: true });
-        }
-    }
-    
-    sendMessage() {
-        const input = document.getElementById('messageInput');
-        const message = input.value.trim();
-        
-        if (!message) return;
-        
-        // Play send sound
-        this.audioManager.playSend();
-        
-        const messagesDiv = document.getElementById('chatMessages');
-        const now = new Date();
-        const timeStr = this.formatTime(now);
-        
-        // Add user's message
-        const messageDiv = this.createMessageElement('You', timeStr, message, '#0000ff');
-        messagesDiv.appendChild(messageDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        
-        input.value = '';
-        
-        // Persist
-        if (this.currentChatUser) {
-            this.appendToConversation(this.currentChatUser, { sender: 'You', text: message, time: timeStr });
-            this.saveState();
-        }
-        
-        // Increment per-user counter (based on user messages)
-        try {
-            const key = (this.currentChatUser || '').trim().toLowerCase();
-            const meta = this.state.meta || (this.state.meta = { counters: {}, thresholds: {}, delivered: {}, last: {} });
-            const counters = meta.counters || (meta.counters = {});
-            const thresholds = meta.thresholds || (meta.thresholds = {});
-            if (key) {
-                if (thresholds[key] == null) thresholds[key] = 3 + Math.floor(Math.random() * 3); // 3..5
-                counters[key] = (counters[key] || 0) + 1;
-                this.saveState();
-            }
-        } catch (e) {}
-
-        // Simulate response with typing indicator and delay
-        const jitter = 500 + Math.floor(Math.random() * 800);
-        // Ensure any previous typing indicator is cleared once user's message is posted
-        this.hideTyping();
-        this.scheduleBuddyReply(this.autoReplyDelay + jitter);
-    }
-
-    scheduleBuddyReply(totalDelayMs) {
-        const username = (document.getElementById('chatWith')?.textContent || 'Friend');
-        // Clear any pending timers
-        if (this.typingTimeoutId) clearTimeout(this.typingTimeoutId);
-        if (this.typingShowTimerId) clearTimeout(this.typingShowTimerId);
-        // Compute reply delay with a natural-looking min time
-        const randMin = 800 + Math.floor(Math.random() * 900); // 800..1700ms
-        const replyDelay = Math.max(this.typingMinMs, Math.min((totalDelayMs | 0) - 100, randMin));
-        // Only show typing if there is enough time before reply to avoid flicker
-        const showDelay = Math.max(0, this.typingShowDelayMs | 0);
-        const marginBeforeReply = 150; // ensure at least this much visible before reply
-        if (replyDelay > showDelay + marginBeforeReply) {
-            this.typingShowTimerId = setTimeout(() => {
-                this.showTyping(username);
-            }, showDelay);
-        }
-        this.typingTimeoutId = setTimeout(() => {
-            this.hideTyping();
-            this.receiveMessage();
-        }, replyDelay);
-    }
-
-    receiveMessage() {
-        // Safety: ensure typing indicator is gone in case of any race
-        this.hideTyping();
-        // Play receive sound
-        this.audioManager.playReceive();
-        
-        const messagesDiv = document.getElementById('chatMessages');
-        const now = new Date();
-        const timeStr = this.formatTime(now);
-        const chatWithElement = document.getElementById('chatWith');
-        const username = chatWithElement ? chatWithElement.textContent : 'Friend';
-        const key = (username || '').trim().toLowerCase();
-        
-        // Decide if we should deliver special 90s-link message
-        const meta = this.state.meta || (this.state.meta = { counters: {}, thresholds: {}, delivered: {}, lastFillerIdx: {}, fillerBags: {} });
-        const counters = meta.counters || (meta.counters = {});
-        const thresholds = meta.thresholds || (meta.thresholds = {});
-        const delivered = meta.delivered || (meta.delivered = {});
-        const lastFillerIdx = meta.lastFillerIdx || (meta.lastFillerIdx = {});
-        const fillerBags = meta.fillerBags || (meta.fillerBags = {});
-        // Migrate any legacy keys to lowercase
-        if (thresholds[username] != null && thresholds[key] == null) { thresholds[key] = thresholds[username]; delete thresholds[username]; }
-        if (counters[username] != null && counters[key] == null) { counters[key] = counters[username]; delete counters[username]; }
-        if (delivered[username] != null && delivered[key] == null) { delivered[key] = delivered[username]; delete delivered[username]; }
-
-        if (thresholds[key] == null) {
-            thresholds[key] = 3 + Math.floor(Math.random() * 3); // 3..5
-        }
-        if (counters[key] == null) counters[key] = 0;
-
-        let replyText;
-        let replyIsHtml = false;
-        if (!delivered[key] && this.specialUsers[key] && counters[key] >= thresholds[key]) {
-            const sites = ['Friendster', 'Myspace', 'Neopets'];
-            const site = sites[Math.floor(Math.random() * sites.length)];
-            const link = this.specialUsers[key];
-            // Safe anchoring for known URLs only
-            const safeHref = this.escapeHtml(link);
-            replyText = `ok real talk — moving off ${this.escapeHtml(site)}. find me here: <a href="${safeHref}" target="_blank" rel="noopener">${safeHref}</a>`;
-            replyIsHtml = true;
-            delivered[key] = true;
-        } else {
-            // Random 90s filler with base responses, per-buddy personality preference
-            const defaultPool = this.responses90s.concat(this.responses);
-            const pool = (this.buddyFiller[key] && this.buddyFiller[key].length ? this.buddyFiller[key] : defaultPool);
-            // Build or refill a shuffled bag of indexes for this user
-            if (!Array.isArray(fillerBags[key]) || fillerBags[key].length === 0) {
-                fillerBags[key] = this._shuffledIndexes(pool.length);
-            }
-            let idx = fillerBags[key].shift();
-            // As a safety, avoid repeating the very last reply
-            if (pool.length > 1 && idx === lastFillerIdx[key]) {
-                // take next, push this one back
-                fillerBags[key].push(idx);
-                idx = fillerBags[key].shift();
-            }
-            lastFillerIdx[key] = idx;
-            replyText = pool[idx];
-            // Do NOT increment counters here; counters represent user-sent messages only
-        }
-
-        // Add buddy's message (use buddy color)
-        const buddyColor = this._buddyColor(key);
-        const responseDiv = this.createMessageElement(username, timeStr, replyText, buddyColor, { html: replyIsHtml });
-        messagesDiv.appendChild(responseDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        // Persist
-        if (this.currentChatUser) {
-            this.appendToConversation(this.currentChatUser, { sender: username, text: replyText, time: timeStr, html: replyIsHtml });
-            this.saveState();
-        }
-    }
-    
-    createMessageElement(sender, time, text, color, opts = {}) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
-        const safeSender = this.escapeHtml(sender);
-        const timeHtml = this.escapeHtml(time);
-        const contentHtml = opts.html ? text : this.escapeHtml(text);
-        messageDiv.innerHTML = `
-            <span class="message-sender" style="color: ${color};">${safeSender}:</span>
-            <span class="message-time">(${timeHtml})</span>
-            <div>${contentHtml}</div>
-        `;
-        return messageDiv;
-    }
-    
-    openChat(username, opts = {}) {
-        // Play signin sound (using receive sound for now)
-        if (!opts.restoreOnly) this.audioManager.playReceive();
-
-        this.currentChatUser = username;
-        this.state.currentUser = username;
-
-        // Clear any pending typing indicator when switching
-        this.hideTyping();
-        
-        const chatWithElement = document.getElementById('chatWith');
-        const chatToUserElement = document.getElementById('chatToUser');
-        
-        if (chatWithElement) chatWithElement.textContent = username;
-        if (chatToUserElement) chatToUserElement.textContent = username;
-
-        // Apply buddy theme (title icon + header name color)
-        this.applyBuddyTheme(username);
-        
-        const messagesDiv = document.getElementById('chatMessages');
-        if (messagesDiv) {
-            messagesDiv.innerHTML = '';
-            const conv = this.state.conversations[username];
-            if (conv && conv.length) {
-                const buddyKey = (username || '').trim().toLowerCase();
-                const buddyColor = this._buddyColor(buddyKey);
-                conv.forEach(m => {
-                    const color = m.sender === 'You' ? '#0000ff' : buddyColor;
-                    const msgEl = this.createMessageElement(m.sender, m.time || this.formatTime(new Date()), m.text, color, { html: !!m.html });
-                    messagesDiv.appendChild(msgEl);
-                });
-            } else if (!opts.restoreOnly) {
-                const now = new Date();
-                const timeStr = this.formatTime(now);
-                const welcome = { sender: username, text: 'hey! whats going on?', time: timeStr };
-                this.state.conversations[username] = [welcome];
-                const buddyKey = (username || '').trim().toLowerCase();
-                const buddyColor = this._buddyColor(buddyKey);
-                const welcomeMsg = this.createMessageElement(username, timeStr, welcome.text, buddyColor);
-                messagesDiv.appendChild(welcomeMsg);
-                this.saveState();
-            }
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+    this.loadState();
+    const initial = this.state.currentUser || Buddies.online[0]?.name;
+    if (initial) {
+      // First visit: seed a short exchange so the window isn't a blank box.
+      if (!this.state.conversations[initial]?.length) {
+        this.state.conversations[initial] = this.starterConversation(initial);
         this.saveState();
+      }
+      this.openChat(initial, { restoreOnly: true });
+    }
+  }
 
-        // Ensure chat windows are visible and activated
-        this.show();
-    }
+  starterConversation(name) {
+    const base = new Date();
+    const at = (minutesAgo) => this.formatTime(new Date(base.getTime() - minutesAgo * 60000));
+    return [
+      { sender: name, text: 'hey whats up! u there?', time: at(3) },
+      { sender: 'You', text: 'yeah just chillin, listening to some CDs', time: at(2) },
+      { sender: name, text: 'cool cool. wanna play some starcraft later?', time: at(1) },
+    ];
+  }
 
-    show() {
-        const chatWindow = document.querySelector('.chat-window');
-        const buddyWindow = document.querySelector('.buddy-list');
-        if (buddyWindow) buddyWindow.style.display = 'block';
-        if (chatWindow) {
-            chatWindow.style.display = 'block';
-            this.activate();
-        }
-        if (!this.taskbarEntry && window.taskbarManager) {
-            this.taskbarEntry = window.taskbarManager.addWindow(this.taskbarId, 'Oxford', {
-                onToggle: () => this.toggleFromTaskbar(),
-                iconClass: 'chat-icon'
-            });
-        }
-    }
+  // ---------- rendering ----------
 
-    hide() {
-        const chatWindow = document.querySelector('.chat-window');
-        const buddyWindow = document.querySelector('.buddy-list');
-        if (buddyWindow) buddyWindow.style.display = 'none';
-        if (chatWindow) chatWindow.style.display = 'none';
-        if (window.taskbarManager) window.taskbarManager.setActive(this.taskbarId, false);
-        this.hideTyping();
-    }
+  renderBuddyList() {
+    const container = document.querySelector('.buddy-list .buddy-groups');
+    if (!container) return;
 
-    close() {
-        this.hide();
-        if (window.taskbarManager) window.taskbarManager.remove(this.taskbarId);
-        this.taskbarEntry = null;
-    }
+    const group = (label, buddies, extraClass = '') => `
+      <section class="buddy-group">
+        <h2 class="buddy-group-header">▼ ${label} (${buddies.length})</h2>
+        <div class="buddy-list-items ${extraClass}" role="list">
+          ${buddies.map((b) => `
+            <button type="button" class="buddy-item buddy-item--${b.status}" role="listitem"
+                    data-buddy="${Utils.escapeAttr(b.name)}" ${b.status === 'offline' ? 'disabled aria-disabled="true"' : ''}>
+              <span class="status-icon status-${b.status}" aria-hidden="true"></span>
+              <span class="buddy-name">${Utils.escapeHtml(b.name)}</span>
+              <span class="visually-hidden">, ${b.status}</span>
+            </button>`).join('')}
+        </div>
+      </section>`;
 
-    toggleFromTaskbar() {
-        const chatWindow = document.querySelector('.chat-window');
-        if (!chatWindow) return;
-        const hidden = chatWindow.style.display === 'none';
-        if (hidden) this.show(); else this.hide();
-    }
+    container.innerHTML = group('Online', Buddies.online) + group('Offline', Buddies.offline, 'is-offline');
 
-    activate() {
-        const chatWindow = document.querySelector('.chat-window');
-        if (!chatWindow) return;
-        chatWindow.style.zIndex = ++windowManager.zIndexCounter;
-        if (window.taskbarManager) window.taskbarManager.setActive(this.taskbarId, true);
+    Utils.on(container, 'click', '.buddy-item', (e) => {
+      const name = e.currentTarget.dataset.buddy;
+      if (name && Buddies.find(name)) this.openChat(name);
+    });
+  }
+
+  bindChatWindow() {
+    const input = document.getElementById('messageInput');
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMessage(); }
+      });
     }
-    
-    formatTime(date) {
-        const hours = date.getHours() % 12 || 12;
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
-        return `${hours}:${minutes}:${seconds} ${ampm}`;
-    }
-    
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    const form = document.querySelector('.chat-input');
+    if (form) {
+      form.addEventListener('submit', (e) => { e.preventDefault(); this.sendMessage(); });
     }
 
-    // -------- Persistence helpers --------
-    loadState() {
-        try {
-            const raw = sessionStorage.getItem(this.storageKey);
-            if (!raw) return;
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
-                this.state = Object.assign({ conversations: {}, currentUser: null }, parsed);
-            }
-        } catch (e) {
-            console.warn('AIM: failed to load chat state', e);
-        }
+    const win = document.querySelector('.chat-window');
+    if (!win) return;
+    windowManager.register(win);
+    const titleBar = win.querySelector('.title-bar');
+    Utils.on(titleBar, 'click', '.title-bar-btn', (e) => {
+      const action = e.currentTarget.dataset.action;
+      if (action === 'min') this.hide();
+      else if (action === 'max') this.toggleMaximize(win);
+      else if (action === 'close') this.close();
+    });
+    win.addEventListener('pointerdown', () => this.activate(), { capture: true });
+  }
+
+  bindBuddyWindow() {
+    const win = document.querySelector('.buddy-list');
+    if (!win) return;
+    windowManager.register(win);
+    const titleBar = win.querySelector('.title-bar');
+    Utils.on(titleBar, 'click', '.title-bar-btn', (e) => {
+      const action = e.currentTarget.dataset.action;
+      if (action === 'min') win.classList.add('window--hidden');
+      else if (action === 'max') this.toggleMaximize(win);
+      else if (action === 'close') this.close();
+    });
+  }
+
+  toggleMaximize(win) {
+    if (win.dataset.maximized === '1') {
+      win.style.top = win.dataset.prevTop || '';
+      win.style.left = win.dataset.prevLeft || '';
+      win.style.width = win.dataset.prevWidth || '';
+      win.style.height = win.dataset.prevHeight || '';
+      win.dataset.maximized = '0';
+    } else {
+      win.dataset.prevTop = win.style.top;
+      win.dataset.prevLeft = win.style.left;
+      win.dataset.prevWidth = win.style.width;
+      win.dataset.prevHeight = win.style.height;
+      const area = Utils.workArea();
+      Object.assign(win.style, { top: '0px', left: '0px', width: `${area.width}px`, height: `${area.height}px` });
+      win.dataset.maximized = '1';
+    }
+  }
+
+  registerTaskbar() {
+    if (!window.taskbarManager) return;
+    window.taskbarManager.addWindow(this.taskbarId, 'Oxford', {
+      iconClass: 'chat-icon',
+      onToggle: () => this.toggleFromTaskbar(),
+    });
+    window.taskbarManager.setActive(this.taskbarId, !this.isHidden);
+  }
+
+  // ---------- messaging ----------
+
+  sendMessage() {
+    const input = document.getElementById('messageInput');
+    if (!input) return;
+    const message = input.value.trim();
+    if (!message) return;
+
+    this.audioManager.playSend();
+    input.value = '';
+
+    const time = this.formatTime(new Date());
+    this.appendMessage('You', time, message, YOU_COLOR);
+
+    if (this.currentChatUser) {
+      this.recordMessage(this.currentChatUser, { sender: 'You', text: message, time });
+      this.bumpCounter(this.currentChatUser);
+      this.saveState();
     }
 
-    saveState() {
-        try {
-            sessionStorage.setItem(this.storageKey, JSON.stringify(this.state));
-        } catch (e) {
-            console.warn('AIM: failed to save chat state', e);
-        }
+    this.hideTyping();
+    this.scheduleBuddyReply();
+  }
+
+  scheduleBuddyReply() {
+    const user = this.currentChatUser;
+    if (!user) return;
+    this.clearTimers();
+
+    const replyDelay = Math.max(TYPING_MIN_MS, 800 + Math.floor(Math.random() * 900));
+    if (replyDelay > TYPING_SHOW_DELAY_MS + 150) {
+      this.timers.showTyping = setTimeout(() => this.showTyping(user), TYPING_SHOW_DELAY_MS);
+    }
+    this.timers.reply = setTimeout(() => {
+      this.hideTyping();
+      this.receiveMessage(user);
+    }, replyDelay);
+  }
+
+  receiveMessage(user) {
+    this.audioManager.playReceive();
+
+    const time = this.formatTime(new Date());
+    const { text, isHtml } = this.composeReply(user);
+    this.appendMessage(user, time, text, Buddies.colorFor(user), { html: isHtml });
+    this.recordMessage(user, { sender: user, text, time, html: isHtml });
+    this.saveState();
+  }
+
+  /**
+   * Pick the buddy's reply. After a few messages each online buddy shares a
+   * real link once; otherwise they draw from a shuffled bag of filler so the
+   * same line never repeats until the whole pool has been used.
+   */
+  composeReply(user) {
+    const k = Buddies.key(user);
+    const meta = this.state.meta;
+    const link = Buddies.linkFor(user);
+
+    if (link && !meta.delivered[k] && (meta.counters[k] || 0) >= this.thresholdFor(k)) {
+      meta.delivered[k] = true;
+      const site = ['Friendster', 'Myspace', 'Neopets'][Math.floor(Math.random() * 3)];
+      const safeLink = Utils.escapeAttr(link);
+      return {
+        text: `ok real talk — moving off ${Utils.escapeHtml(site)}. find me here: <a href="${safeLink}" target="_blank" rel="noopener noreferrer">${Utils.escapeHtml(link)}</a>`,
+        isHtml: true,
+      };
     }
 
-    appendToConversation(username, message) {
-        if (!this.state.conversations[username]) this.state.conversations[username] = [];
-        this.state.conversations[username].push({
-            sender: message.sender,
-            text: message.text,
-            time: message.time,
-            html: !!message.html
-        });
+    const pool = Buddies.fillerFor(user);
+    let bag = meta.fillerBags[k];
+    if (!Array.isArray(bag) || !bag.length) bag = meta.fillerBags[k] = this.shuffledIndexes(pool.length);
+    let idx = bag.shift();
+    if (pool.length > 1 && idx === meta.lastFillerIdx[k]) {
+      bag.push(idx);
+      idx = bag.shift();
+    }
+    meta.lastFillerIdx[k] = idx;
+    return { text: pool[idx], isHtml: false };
+  }
+
+  thresholdFor(k) {
+    if (this.state.meta.thresholds[k] == null) {
+      this.state.meta.thresholds[k] = 3 + Math.floor(Math.random() * 3); // 3..5
+    }
+    return this.state.meta.thresholds[k];
+  }
+
+  bumpCounter(user) {
+    const k = Buddies.key(user);
+    this.thresholdFor(k);
+    this.state.meta.counters[k] = (this.state.meta.counters[k] || 0) + 1;
+  }
+
+  appendMessage(sender, time, text, color, opts = {}) {
+    const messages = document.getElementById('chatMessages');
+    if (!messages) return;
+    messages.appendChild(this.createMessageElement(sender, time, text, color, opts));
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  createMessageElement(sender, time, text, color, opts = {}) {
+    const el = document.createElement('div');
+    el.className = 'message';
+
+    const senderEl = document.createElement('span');
+    senderEl.className = 'message-sender';
+    senderEl.style.color = color;
+    senderEl.textContent = `${sender}:`;
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'message-time';
+    timeEl.textContent = `(${time})`;
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'message-text';
+    // Only replies this module builds itself are marked as HTML; anything the
+    // user typed goes through textContent.
+    if (opts.html) bodyEl.innerHTML = text;
+    else bodyEl.textContent = text;
+
+    el.append(senderEl, timeEl, bodyEl);
+    return el;
+  }
+
+  // ---------- conversation switching ----------
+
+  openChat(username, opts = {}) {
+    const buddy = Buddies.find(username);
+    const name = buddy ? buddy.name : username;
+    if (!opts.restoreOnly) this.audioManager.playReceive();
+
+    this.currentChatUser = name;
+    this.state.currentUser = name;
+    this.clearTimers();
+    this.hideTyping();
+
+    const color = Buddies.colorFor(name);
+    const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setText('chatWith', name);
+    setText('chatToUser', name);
+    this.applyBuddyTheme(color);
+    this.markActiveBuddy(name);
+
+    const messages = document.getElementById('chatMessages');
+    if (messages) {
+      messages.replaceChildren();
+      let conv = this.state.conversations[name];
+      if ((!conv || !conv.length) && !opts.restoreOnly) {
+        conv = [{ sender: name, text: 'hey! whats going on?', time: this.formatTime(new Date()) }];
+        this.state.conversations[name] = conv;
+      }
+      (conv || []).forEach((m) => {
+        messages.appendChild(this.createMessageElement(
+          m.sender,
+          m.time || this.formatTime(new Date()),
+          m.text,
+          m.sender === 'You' ? YOU_COLOR : color,
+          { html: !!m.html },
+        ));
+      });
+      messages.scrollTop = messages.scrollHeight;
     }
 
-    seedFromDOM() {
-        try {
-            const user = document.getElementById('chatWith')?.textContent || null;
-            if (!user) return;
-            const messages = [];
-            document.querySelectorAll('#chatMessages .message').forEach(el => {
-                const senderRaw = el.querySelector('.message-sender')?.textContent || '';
-                const sender = senderRaw.replace(/:\s*$/, '').trim();
-                const time = el.querySelector('.message-time')?.textContent?.replace(/[()]/g, '').trim() || '';
-                const text = el.querySelector('div')?.textContent || '';
-                messages.push({ sender, time, text });
-            });
-            if (messages.length) {
-                this.state.conversations[user] = messages;
-                this.state.currentUser = user;
-            }
-        } catch (e) {
-            console.warn('AIM: failed to seed chat state from DOM', e);
-        }
-    }
-    
-    
-    // ---- helpers ----
-    _shuffledIndexes(n) {
-        const arr = Array.from({ length: n }, (_, i) => i);
-        for (let i = n - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
-    }
+    this.saveState();
+    this.show();
+  }
 
-    showTyping(username) {
-        const messagesDiv = document.getElementById('chatMessages');
-        if (!messagesDiv) return;
-        if (!this.typingEl) {
-            const el = document.createElement('div');
-            el.className = 'message typing';
-            el.id = 'chatTyping';
-            this.typingEl = el;
-        }
-        const safeUser = this.escapeHtml(username || 'Friend');
-        this.typingEl.innerHTML = `
-            <span class="message-sender" style="color: #ff0000;">${safeUser}:</span>
-            <span class="message-time">(typing)</span>
-            <div><em>is typing…</em></div>
-        `;
-        if (!this.typingEl.parentNode) messagesDiv.appendChild(this.typingEl);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        // Reflect typing in buddy list
-        const key = (username || '').trim().toLowerCase();
-        this.typingForUserKey = key;
-        this.setBuddyTyping(key, true);
-    }
+  markActiveBuddy(name) {
+    document.querySelectorAll('.buddy-item').forEach((el) => {
+      el.classList.toggle('active', el.dataset.buddy === name);
+      el.setAttribute('aria-current', el.dataset.buddy === name ? 'true' : 'false');
+    });
+  }
 
-    hideTyping() {
-        if (this.typingTimeoutId) {
-            clearTimeout(this.typingTimeoutId);
-            this.typingTimeoutId = null;
-        }
-        if (this.typingShowTimerId) {
-            clearTimeout(this.typingShowTimerId);
-            this.typingShowTimerId = null;
-        }
-        if (this.typingEl && this.typingEl.parentNode) {
-            this.typingEl.parentNode.removeChild(this.typingEl);
-        }
-        if (this.typingForUserKey) {
-            this.setBuddyTyping(this.typingForUserKey, false);
-            this.typingForUserKey = null;
-        }
-    }
+  applyBuddyTheme(color) {
+    const win = document.querySelector('.chat-window');
+    if (!win) return;
+    const icon = win.querySelector('.title-bar-icon');
+    if (icon) icon.style.background = color;
+    const to = win.querySelector('#chatToUser');
+    if (to) to.style.color = color;
+  }
 
-    setBuddyTyping(userKeyLower, active) {
-        // Per request: do not show typing UI in the buddy list at all.
-        // If any prior indicator exists (from older sessions), remove it.
-        try {
-            const items = document.querySelectorAll('.buddy-list .buddy-item');
-            items.forEach(el => {
-                const label = (el.textContent || '').trim().toLowerCase();
-                if (label === userKeyLower) {
-                    const wrap = el.querySelector('.typing-wrap');
-                    if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
-                }
-            });
-        } catch (e) {}
-    }
+  // ---------- typing indicator ----------
 
-    _buddyColor(key) {
-        const meta = this.state.meta || (this.state.meta = {});
-        const colors = meta.colors || (meta.colors = {});
-        // unify aliases
-        const unifiedKey = (key === 'xmarktheneill99x') ? 'xmarktheneil99x' : (key === 'randobrandon' ? 'randobrando' : key);
-        return colors[unifiedKey] || '#0000ff';
+  showTyping(username) {
+    const messages = document.getElementById('chatMessages');
+    if (!messages) return;
+    if (!this.typingEl) {
+      this.typingEl = document.createElement('div');
+      this.typingEl.className = 'message typing';
+      this.typingEl.id = 'chatTyping';
+      this.typingEl.setAttribute('role', 'status');
     }
+    this.typingEl.replaceChildren();
+    const who = document.createElement('span');
+    who.className = 'message-sender';
+    who.style.color = Buddies.colorFor(username);
+    who.textContent = `${username}:`;
+    const body = document.createElement('div');
+    body.innerHTML = '<em>is typing…</em>';
+    this.typingEl.append(who, body);
 
-    _ensureBuddyColors() {
-        const meta = this.state.meta || (this.state.meta = {});
-        const colors = meta.colors || (meta.colors = {});
-        // Known normalized buddy keys (unified)
-        const keys = ['sepinator', 'xmarktheneil99x', 'selvatron', 'randobrando'];
-        const palette = ['#d00000', '#0040c0', '#008000', '#800080', '#c06000', '#008080'];
-        // Assign if missing
-        const used = new Set(Object.values(colors));
-        let pi = 0;
-        keys.forEach(k => {
-            if (!colors[k]) {
-                // pick next unused palette color
-                while (pi < palette.length && used.has(palette[pi])) pi++;
-                const col = palette[pi % palette.length];
-                colors[k] = col;
-                used.add(col);
-            }
-        });
-        // Mirror aliases to same color
-        colors['xmarktheneill99x'] = colors['xmarktheneil99x'];
-        colors['randobrandon'] = colors['randobrando'];
-        this.saveState();
-    }
+    if (!this.typingEl.parentNode) messages.appendChild(this.typingEl);
+    messages.scrollTop = messages.scrollHeight;
+  }
 
-    applyBuddyTheme(username) {
-        const key = (username || '').trim().toLowerCase();
-        const color = this._buddyColor(key);
-        try {
-            const chatWin = document.querySelector('.chat-window');
-            if (chatWin) {
-                const icon = chatWin.querySelector('.title-bar .title-bar-icon');
-                if (icon) icon.style.background = color;
-                const toEl = chatWin.querySelector('#chatToUser');
-                if (toEl) toEl.style.color = color;
-            }
-        } catch (e) { /* ignore */ }
+  hideTyping() {
+    if (this.typingEl?.parentNode) this.typingEl.parentNode.removeChild(this.typingEl);
+  }
+
+  clearTimers() {
+    Object.keys(this.timers).forEach((k) => {
+      if (this.timers[k]) { clearTimeout(this.timers[k]); this.timers[k] = null; }
+    });
+  }
+
+  // ---------- window state ----------
+
+  get isHidden() {
+    const win = document.querySelector('.chat-window');
+    return !win || win.classList.contains('window--hidden');
+  }
+
+  show() {
+    ['.buddy-list', '.chat-window'].forEach((sel) => {
+      document.querySelector(sel)?.classList.remove('window--hidden');
+    });
+    this.activate();
+    if (window.taskbarManager && !window.taskbarManager.items.has(this.taskbarId)) this.registerTaskbar();
+  }
+
+  hide() {
+    ['.buddy-list', '.chat-window'].forEach((sel) => {
+      document.querySelector(sel)?.classList.add('window--hidden');
+    });
+    window.taskbarManager?.setActive(this.taskbarId, false);
+    this.clearTimers();
+    this.hideTyping();
+  }
+
+  close() {
+    this.hide();
+    window.taskbarManager?.remove(this.taskbarId);
+  }
+
+  toggleFromTaskbar() {
+    if (this.isHidden) this.show(); else this.hide();
+  }
+
+  activate() {
+    const win = document.querySelector('.chat-window');
+    if (win) windowManager.bringToFront(win);
+    window.taskbarManager?.setActive(this.taskbarId, true);
+  }
+
+  // ---------- persistence ----------
+
+  recordMessage(username, message) {
+    if (!this.state.conversations[username]) this.state.conversations[username] = [];
+    this.state.conversations[username].push({
+      sender: message.sender,
+      text: message.text,
+      time: message.time,
+      html: !!message.html,
+    });
+  }
+
+  loadState() {
+    try {
+      const raw = sessionStorage.getItem(CHAT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      this.state = {
+        conversations: parsed.conversations || {},
+        currentUser: parsed.currentUser || null,
+        meta: {
+          counters: {}, thresholds: {}, delivered: {}, fillerBags: {}, lastFillerIdx: {},
+          ...(parsed.meta || {}),
+        },
+      };
+    } catch (err) {
+      console.warn('Oxford Messenger: could not restore chat state', err);
     }
+  }
+
+  saveState() {
+    try {
+      sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(this.state));
+    } catch (err) {
+      console.warn('Oxford Messenger: could not save chat state', err);
+    }
+  }
+
+  // ---------- helpers ----------
+
+  shuffledIndexes(n) {
+    const arr = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  formatTime(date) {
+    const hours = date.getHours() % 12 || 12;
+    const pad = (n) => String(n).padStart(2, '0');
+    const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
+    return `${hours}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${ampm}`;
+  }
 }
 
-// Create global instance (will be initialized in main.js)
-let chatManager = null;
+window.ChatManager = ChatManager;

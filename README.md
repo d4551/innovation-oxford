@@ -1,170 +1,147 @@
-# AOL Instant Messenger Retro Website
+# Oxford Messenger
 
-A nostalgic recreation of AOL Instant Messenger (AIM) with authentic sounds, terminal emulator, and dial-up connection intro sequence.
+A playable recreation of a 1999 desktop: an AOL-style instant messenger, mail
+client, Paint, media player, MS-DOS prompt and two real DOS games — all running
+in the browser from static files.
 
-## Features
+No build step, no framework, no CDN, no tracking. Open `index.html` and it runs.
 
-✅ **Authentic AIM Interface**
-- Buddy list with online/away status
-- Chat window with instant messaging
-- Windows 95-style UI with draggable windows
-- Retro scanline and CRT effects
+## Running it
 
-✅ **Real Sound Effects**
-- `aim-send.mp3` - Plays when you send a message
-- `aim-in.mp3` - Plays when you receive a message
-- `dial-up-modem-sound.mp3` - Plays during connection sequence
-- `welcome.mp3` - Plays after successful connection
-- `you-ve-got-mail.mp3` - Available for mail notifications
+Any static file server works:
 
-✅ **AOL Dial-Up Intro Sequence**
-- 3-step connection animation (Initialize → Dial → Authenticate → Connect)
-- Authentic dial-up modem sound
-- Welcome sound on successful connection
-- Shows only once per session (uses SessionStorage)
-- Skip button (or press ESC)
-
-✅ **MS-DOS Terminal Emulator**
-- Powered by xterm.js
-- Available commands: `help`, `dir`, `cls`, `ver`, `time`, `date`, `aim`, `whoami`
-- Open with Ctrl+T or click "MS-DOS Prompt" in taskbar
-- Fully draggable and minimizable
-
-## Project Structure
-
-```
-website/
-├── index.html              # Main HTML structure (136 lines)
-├── main.css                # All styles including dial-up intro (830+ lines)
-├── main.js                 # Application coordinator
-├── js/
-│   ├── audio-manager.js    # Sound effects with Howler.js
-│   ├── chat-manager.js     # Messaging functionality
-│   ├── terminal-manager.js # xterm.js terminal emulator
-│   ├── dialup-intro.js     # AOL connection sequence
-│   └── window-manager.js   # Draggable windows
-├── media/
-│   └── sounds/
-│       ├── aim-send.mp3
-│       ├── aim-in.mp3
-│       ├── dial-up-modem-sound.mp3
-│       ├── welcome.mp3
-│       └── you-ve-got-mail.mp3
-└── fonts/                  # (if any custom fonts)
+```sh
+npx http-server -p 8099 -c-1 .
+# then open http://127.0.0.1:8099
 ```
 
-## Technology Stack
+Opening `index.html` straight off disk mostly works, but the DOS games need a
+real `http(s)://` origin because the emulator loads WebAssembly.
 
-- **Howler.js 2.2.4** - Cross-browser audio library via jsdelivr CDN
-- **xterm.js 5.3.0** - Terminal emulator via jsdelivr CDN
-- **xterm addon-fit 0.8.0** - Terminal responsive sizing
-- **ES6 Classes** - Modern JavaScript modular architecture
-- **SessionStorage** - Track dial-up intro shown state
-- **Web Audio API** - Fallback audio support
+## What's in it
 
-## Module Architecture
+| App | Notes |
+|---|---|
+| **Oxford Messenger** | Buddy list + IM window. Buddies reply with per-personality 90s chatter and eventually share a real link. History persists for the session. |
+| **Oxford Mail** | Sortable inbox, reader pane, compose/reply/delete, fake "check for new mail". Read state persists in `localStorage`. |
+| **MS-DOS Prompt** | xterm.js with a command set (`help`, `dir`, `ver`, `dos`, `civ`, `oregon`, …), command history on ↑/↓, and auto-fit to the window. |
+| **MS-DOS Games** | The Oregon Trail and Sid Meier's Civilization, running under DOSBox via js-dos. |
+| **Oxford Paint** | Pencil/eraser, colour, brush size, undo/redo, save as PNG. Works with mouse, finger and stylus. |
+| **Internet Explorer** | A period-accurate chrome around a snapshot of the real Oxford course page. |
+| **Oxford Channels** | Channel tiles opening an "Innovation & You" slide deck. |
+| **Media Player** | Windows-98-style player with seek, volume, playlist and a live audio visualiser. |
 
-### AudioManager (`js/audio-manager.js`)
-- Manages all sound effects with Howler.js
-- Methods: `init()`, `playSend()`, `playReceive()`, `playDialup(callback)`, `playWelcome(callback)`, `playGotMail()`
+## Layout
 
-### ChatManager (`js/chat-manager.js`)
-- Handles instant messaging
-- Methods: `sendMessage()`, `receiveMessage()`, `openChat(username)`, `init()`
-- Integrates with AudioManager for sounds
+The site has two layout modes, switched by a `matchMedia` listener in `main.js`
+that toggles `body.is-compact`:
 
-### TerminalManager (`js/terminal-manager.js`)
-- Manages xterm.js terminal
-- Methods: `createTerminal()`, `initializeXterm()`, `handleCommand(cmd)`, `close()`, `minimize()`, `restore()`
-- 8 available commands with MS-DOS style output
+- **Wide** (>900px and >520px tall) — free-floating windows you can drag, resize
+  from any edge or corner, maximize, minimize and stack.
+- **Compact** (tablets and phones) — every window is pinned full-bleed above the
+  taskbar and the taskbar becomes the window switcher. Dragging and resizing are
+  disabled because they cannot work well under a thumb. Messenger splits the
+  screen: buddy list on top, conversation below. **Start → Show Desktop** gets
+  you back to the icons.
 
-### DialupIntro (`js/dialup-intro.js`)
-- AOL dial-up connection sequence
-- Methods: `show()`, `startSequence()`, `skip()`, `reset()`
-- 3-step animation with authentic sounds
-- Uses SessionStorage to show only once
+All pointer interaction (window drag, window resize, painting, the mail splitter)
+uses Pointer Events, so mouse, touch and stylus run through one code path.
 
-### WindowManager (`js/window-manager.js`)
-- Draggable window functionality
-- Methods: `makeWindowDraggable(windowElement, handleElement)`, `init()`, `cleanup()`
-- Viewport boundary detection
+## Accessibility
 
-## Usage
+- Every control is a real `<button>` with an accessible name, reachable and
+  operable by keyboard, with a visible focus ring.
+- Targets meet the WCAG 2.5.8 (AA) 24×24px minimum, and are enlarged on
+  touch-primary devices.
+- The CRT flicker runs at 0.25Hz — far below the 3-flashes-per-second limit in
+  WCAG 2.3.1 — and all decorative motion is removed under
+  `prefers-reduced-motion: reduce`.
+- Live regions announce chat messages, mail status and player state.
+- `prefers-contrast: more` and a print stylesheet are both supported.
 
-### Basic Setup
-1. Open `index.html` in a modern browser
-2. Dial-up intro plays automatically on first visit
-3. Click any buddy in the list to start chatting
-4. Type a message and press Enter or click Send
+## Project structure
 
-### Keyboard Shortcuts
-- **Ctrl+T** - Open MS-DOS terminal
-- **ESC** - Skip dial-up intro
-- **Enter** - Send message in chat
-
-### Terminal Commands
 ```
-help    - Show available commands
-dir     - List directory contents
-cls     - Clear screen
-ver     - Show system version
-time    - Display current time
-date    - Display current date
-aim     - Return to AIM
-whoami  - Display user information
-```
-
-### Developer Options
-
-#### Disable Dial-Up Intro
-In `main.js`, comment out:
-```javascript
-// setTimeout(() => {
-//     dialupIntro.show();
-// }, 500);
-```
-
-#### Reset Dial-Up Intro (for testing)
-Open browser console and run:
-```javascript
-dialupIntro.reset();
-location.reload();
+index.html                 markup shell; every script is deferred
+main.css                   all styles, in numbered sections (see file header)
+main.js                    boot, layout mode, clock, keyboard shortcuts
+js/
+  utils.js                 escaping, event delegation, layout maths
+  buddies.js               the buddy roster: one source of truth
+  app-window.js            AppWindow base class — the window lifecycle
+  window-manager.js        window shells, pointer drag + resize
+  taskbar-manager.js       taskbar buttons
+  audio-manager.js         Howler wrapper; degrades to silence
+  dialup-intro.js          sign-in + connection sequence
+  chat-manager.js          messenger
+  mail-manager.js          mail + compose
+  terminal-manager.js      xterm.js prompt
+  msdos-manager.js         js-dos wrapper + game windows
+  media-player-manager.js  audio/video player
+  ie-manager.js            fake browser
+  paint-manager.js         paint
+  folder-manager.js        folder windows
+  channels-manager.js      channels + slide deck
+  start-menu.js            Start menu
+  desktop-icons.js         desktop icon grid
+  clipart.js               inline SVG clipart
+  slides-data.js           slide deck content
+vendor/                    all third-party code (see vendor/VERSIONS.md)
+tools/                     build script for the DOS game bundles
 ```
 
-#### Add New Sound Effects
-1. Add MP3 file to `media/sounds/`
-2. Add Howl instance in `audio-manager.js`:
-```javascript
-this.sounds.newSound = new Howl({
-    src: ['media/sounds/new-sound.mp3'],
-    volume: 0.5
-});
+### The window lifecycle
+
+Every windowed app extends `AppWindow`, which owns creating the shell, wiring
+the three title-bar buttons, registering a taskbar button, and
+minimize/restore/maximize/close. Subclasses implement `renderBody()` and,
+optionally, `onShow()`, `onHide()`, `onClose()` and `onResize()`. Adding an app
+is a subclass, not another copy of the same six methods.
+
+Window visibility is the `.window--hidden` class rather than an inline
+`display`, so the compact layout can own `display` without fighting inline
+styles written by dragging and resizing.
+
+## Dependencies
+
+Everything is vendored under `vendor/` — there are no runtime requests to any
+third party, so the site works offline, behind a firewall, with an ad-blocker,
+and is unaffected by CDN outages. Versions and refresh instructions are in
+[`vendor/VERSIONS.md`](vendor/VERSIONS.md).
+
+## The DOS game bundles
+
+`games/*.jsdos` are built from the plain game directories:
+
+```sh
+python3 tools/build-jsdos-bundles.py
 ```
-3. Add playback method:
-```javascript
-playNewSound() {
-    this.sounds.newSound.play();
-}
-```
 
-## Browser Support
+They need js-dos metadata (`.jsdos/dosbox.conf`, `.jsdos/readme.txt`,
+`.jsdos/jsdos.json`, and an explicit `.jsdos/` directory entry) that a plain zip
+does not have. See `vendor/VERSIONS.md` for the full story.
 
-- ✅ Chrome/Edge (latest)
-- ✅ Firefox (latest)
-- ✅ Safari (latest)
-- ⚠️ Mobile browsers (limited - designed for desktop)
+## Keyboard shortcuts
 
-## Credits
+| Keys | Action |
+|---|---|
+| `Ctrl`/`Cmd` + `T` | Open the MS-DOS prompt |
+| `Esc` | Skip the dial-up sequence; close the Start menu |
+| `Enter` | Send a chat message |
+| `↑` / `↓` | Command history in the terminal; message list in Mail |
+| `←` / `→` | Previous/next slide; resize the mail splitter when focused |
+| `Ctrl` + `Z` / `Y` | Undo / redo in Paint |
 
-- **Howler.js** by James Simpson (goldfire)
-- **xterm.js** by SourceForge/Microsoft
-- Sound effects: Classic AOL/AIM sounds
-- UI Design: Windows 95 & AIM aesthetic
+## Browser support
 
-## License
+Current Chrome, Edge, Firefox and Safari, on desktop, tablet and phone.
 
-For educational and nostalgic purposes only. AOL and AIM are trademarks of their respective owners.
+The `.mp4` clips are H.264, so they need a browser built with that codec —
+every mainstream browser has it, but a bare open-source Chromium build may not.
+When the browser cannot decode a file the player says so rather than sitting on
+a spinner.
 
----
+## Licence
 
-**Built with ❤️ and nostalgia for the golden age of instant messaging**
+For educational and nostalgic purposes only. AOL, AIM, Windows and the games are
+trademarks of their respective owners.

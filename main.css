@@ -1,337 +1,80 @@
-/* Retro Windows 95/98 inspired theme overlay
-  Apply by adding class "retro-win" on <body> */
+/* ============================================================
+   OXFORD MESSENGER — a 1999 desktop, rebuilt
+   ------------------------------------------------------------
+   Layout model
+     Wide viewports  : free-floating, draggable, resizable windows.
+     Compact (<=900px wide, or <=520px tall): every window is pinned
+       full-bleed above the taskbar, and the taskbar is the switcher.
+       The switch is driven by `body.is-compact`, set from main.js.
 
+   Sections
+     1. Tokens          6. Taskbar + Start menu
+     2. Base + a11y     7. Applications
+     3. CRT effects     8. Dial-up intro
+     4. Windows         9. Refactored markup
+     5. Messenger      10. Compact / tablet / phone
+     ...                11. Motion, contrast and print
+   ============================================================ */
+
+/* ---------- 1. Tokens ---------- */
 :root {
+  /* Brand */
   --oxford-brand-blue: #002147;
   --oxford-brand-gold: #f4c542;
+
+  /* Windows 95 palette */
+  --w95-face: #c0c0c0;
+  --w95-face-light: #dfdfdf;
+  --w95-face-dark: #808080;
+  --w95-shadow: #000000;
+  --w95-white: #ffffff;
+  --w95-title-a: #000080;
+  --w95-title-b: #1084d0;
+  --w95-desktop: #008080;
+  --w95-text: #000000;
+  --w95-text-dim: #404040;
+  --w95-select: #000080;
+  --w95-select-text: #ffffff;
+
+  /* Metrics — read by JS via Utils.taskbarHeight() so the two agree */
+  --taskbar-h: 32px;
+  /* Total space the taskbar occupies, including the home-indicator inset. */
+  --taskbar-total: calc(var(--taskbar-h) + env(safe-area-inset-bottom));
+  --titlebar-h: 28px;
+  --icon-gutter: 96px;
+  --win-gap: 8px;
+  --font-ui: 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Geneva, Verdana, sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  /* Minimum comfortable hit area; raised on touch in section 9. */
+  --tap: 24px;
 }
 
-.retro-win {
-  --rw-bg: #c0c0c0 !important;
-  --rw-blue: #000080 !important;
-  --rw-gray-dark: #808080 !important;
-  --rw-gray-darker: #404040 !important;
-  --rw-white: #ffffff !important;
-  --rw-text: #000000 !important;
-  --rw-highlight: #0000ff !important;
-  font-family: Tahoma, "MS Sans Serif", Geneva, Verdana, sans-serif !important;
-  color: var(--rw-text) !important;
-  background: var(--rw-bg) !important;
-  background-image: none !important;
-}
-
-/* Override global page background and visual noise layers */
-body.retro-win {
-  background: var(--rw-bg) !important;
-  background-image: none !important;
-  color: var(--rw-text) !important;
-}
-body.retro-win::before,
-body.retro-win::after {
-  content: none !important;
-  display: none !important;
-}
-
-/* Utility hidden class for gating screens */
-.hidden {
-  display: none !important;
-}
-
-/* Hide CRT/noise overlays in retro theme */
-.retro-win #vault-crt-overlay,
-.retro-win #crt-overlay,
-.retro-win #static-noise {
-  display: none !important;
-}
-
-/* Windows cursor overlay (SVG data URIs with fallback) */
-.retro-win {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24"><polygon fill="black" points="0,0 0,16 6,12 10,24 13,23 9,11 16,10"/></svg>') 0 0, default;
-}
-.retro-win a,
-.retro-win button,
-.retro-win [role="button"],
-.retro-win .mystery-item,
-.retro-win .footer-links a,
-.retro-win .sync-action,
-.retro-win .vault-button {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24"><path fill="black" d="M2 14 L2 8 L4 8 L4 12 L5 12 L5 7 L7 7 L7 12 L8 12 L8 9 L10 9 L10 13 L11 13 L11 11 L13 11 L13 16 L12 20 L9 23 L4 21 Z"/></svg>') 2 0, pointer;
-}
-
-/* 3D window look for sections */
-.retro-win section,
-.retro-win .terminal,
-.retro-win .sync-card,
-.retro-win .mystery-item,
-.retro-win .access-panel,
-.retro-win .vault-access,
-.retro-win .sync-status,
-.retro-win .modal-container {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-/* Remove glass sheen layers */
-.retro-win .glass::before,
-.retro-win .glass::after,
-.retro-win .vault-access::before,
-.retro-win .vault-access::after {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-}
-
-/* Title bars */
-.retro-win .section-header,
-.retro-win .terminal-header,
-.retro-win .modal-header {
-  background: linear-gradient( to right, var(--rw-blue), #003399);
-  color: #fff !important;
-  border: 2px solid var(--rw-white);
-  border-right-color: var(--rw-gray-dark);
-  border-bottom-color: var(--rw-gray-dark);
-  padding: 6px 8px !important;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* Terminal content area */
-.retro-win .terminal-body {
-  background: #ffffff !important;
-  color: #000 !important;
-}
-
-.retro-win .section-header h2,
-.retro-win .terminal-title,
-.retro-win .modal-title {
-  color: #fff !important;
-  text-shadow: none !important;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-/* 3D buttons */
-.retro-win .sync-action,
-.retro-win .vault-button,
-.retro-win .modal-close,
-.retro-win button {
-  background: var(--rw-bg) !important;
-  color: var(--rw-text) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-  box-shadow: none !important;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-}
-.retro-win .sync-action:active,
-.retro-win .vault-button:active,
-.retro-win .modal-close:active,
-.retro-win button:active {
-  border: 2px solid var(--rw-gray-dark) !important;
-  border-right-color: var(--rw-white) !important;
-  border-bottom-color: var(--rw-white) !important;
-}
-
-/* Inputs */
-.retro-win input,
-.retro-win textarea,
-.retro-win select {
-  background: #fff !important;
-  color: #000 !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-  box-shadow: none !important;
-}
-
-/* Panels and cards */
-.retro-win .glass,
-.retro-win .stat-box {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-}
-
-/* Remove neon/glow effects in retro mode */
-.retro-win .gradient-text,
-.retro-win .status-code,
-.retro-win .rank-badge,
-.retro-win .glyph-value,
-.retro-win .sync-content,
-.retro-win .sync-card,
-.retro-win .vault-access {
-  text-shadow: none !important;
-  box-shadow: none !important;
-}
-
-/* Disable gradient text in retro mode */
-.retro-win .gradient-text {
-  background: none !important;
-  -webkit-background-clip: initial !important;
-  background-clip: initial !important;
-  -webkit-text-fill-color: inherit !important;
-  color: inherit !important;
-}
-
-/* Top header simplified */
-.retro-win header {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-  padding: 6px !important;
-}
-.retro-win .vault-logo .logo-text h1,
-.retro-win .vault-logo .designation,
-.retro-win .header-info .tagline,
-.retro-win .header-info .subtitle,
-.retro-win .header-info .warning-text {
-  color: #000 !important;
-  text-shadow: none !important;
-}
-
-/* Progress bars in retro style */
-.retro-win #log-progress-bar,
-.retro-win #signal-bar-fill,
-.retro-win #progress-fill {
-  background: #00a !important;
-  border: 1px solid var(--rw-gray-dark) !important;
-}
-
-/* Links */
-.retro-win a { color: var(--rw-highlight); text-decoration: underline; }
-
-/* Modal window */
-.retro-win .modal-container {
-  max-width: 720px;
-}
-
-/* Floating messages – use minimal fade animation */
-.retro-win .floating-message {
-  background: #000 !important;
-  color: #0f0 !important;
-  border: 1px solid #00a !important;
-  animation: fadeInOut 3s ease;
-}
-
-/* Override all text colors in retro mode */
-.retro-win * {
-  color: var(--rw-text) !important;
-}
-
-/* Override all backgrounds in retro mode */
-.retro-win main,
-.retro-win .terminal-section,
-.retro-win .journal-section,
-.retro-win .mystery-section,
-.retro-win .experiment-section,
-.retro-win .vault-access,
-.retro-win .sync-status {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-}
-
-/* Override all text elements */
-.retro-win h1,
-.retro-win h2,
-.retro-win h3,
-.retro-win p,
-.retro-win span,
-.retro-win div {
-  color: var(--rw-text) !important;
-  text-shadow: none !important;
-}
-
-/* Override all links */
-.retro-win a {
-  color: var(--rw-highlight) !important;
-}
-
-/* Override all buttons and interactive elements */
-.retro-win .sync-action,
-.retro-win .vault-button,
-.retro-win .modal-close,
-.retro-win button,
-.retro-win [role="button"] {
-  background: var(--rw-bg) !important;
-  color: var(--rw-text) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-}
-
-/* Override terminal styling */
-.retro-win .terminal {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-}
-
-.retro-win .terminal-header {
-  background: linear-gradient(to right, var(--rw-blue), #003399) !important;
-  color: #fff !important;
-}
-
-.retro-win .terminal-body {
-  background: #ffffff !important;
-  color: #000000 !important;
-}
-
-/* Override progress bars and status indicators */
-.retro-win .progress-badge,
-.retro-win .rank-badge,
-.retro-win .glyph-value,
-.retro-win .metric-value,
-.retro-win .sync-metric {
-  color: var(--rw-text) !important;
-  background: var(--rw-bg) !important;
-  border: 1px solid var(--rw-gray-dark) !important;
-}
-
-/* Override modal styling */
-.retro-win .modal-container {
-  background: var(--rw-bg) !important;
-  border: 2px solid var(--rw-white) !important;
-  border-right-color: var(--rw-gray-dark) !important;
-  border-bottom-color: var(--rw-gray-dark) !important;
-}
-
-.retro-win .modal-header {
-  background: linear-gradient(to right, var(--rw-blue), #003399) !important;
-  color: #fff !important;
-}
-
-.retro-win .modal-body {
-  background: #ffffff !important;
-  color: #000000 !important;
-}
-
-/* AIM Instant Messenger Styles */
-
-@import url('https://fonts.googleapis.com/css2?family=MS+Sans+Serif:wght@400;700&display=swap');
-
+/* ---------- 2. Base + accessibility ---------- */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  /* Never let a pinch-zoom-out shrink the desktop below the viewport. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
-  font-family: 'MS Sans Serif', 'Microsoft Sans Serif', sans-serif;
-  background: #008080;
+  font-family: var(--font-ui);
+  background: var(--w95-desktop);
+  color: var(--w95-text);
   overflow: hidden;
   position: relative;
+  /* 100vh is wrong on mobile: it ignores the collapsing browser chrome and
+     leaves the taskbar under the address bar. dvh tracks the real viewport. */
   height: 100vh;
+  height: 100dvh;
+  /* Respect the notch / home indicator on phones. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24"><polygon fill="black" points="0,0 0,16 6,12 10,24 13,23 9,11 16,10"/><polygon fill="white" points="1,1 1,15 5,12 9,23 12,22 8,10 15,9"/></svg>') 0 0, default;
 }
 
@@ -343,42 +86,64 @@ a,
   cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24"><path fill="black" d="M2 14 L2 8 L4 8 L4 12 L5 12 L5 7 L7 7 L7 12 L8 12 L8 9 L10 9 L10 13 L11 13 L11 11 L13 11 L13 16 L12 20 L9 23 L4 21 Z"/><path fill="white" d="M3 13 L3 9 L4 9 L4 11 L5 11 L5 8 L6 8 L6 11 L7 11 L7 10 L9 10 L9 13 L10 13 L10 12 L11 12 L11 15 L10 18 L8 20 L5 19 Z"/></svg>') 2 0, pointer;
 }
 
-/* Screen flicker effects */
+/* Buttons styled as UI chrome must still inherit the page font. */
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+/* A single, always-visible focus ring. The Win95 look has almost no other
+   focus affordance, so keyboard users depend on this one. */
+:focus-visible {
+  outline: 2px solid #ffd400;
+  outline-offset: 1px;
+}
+
+/* Available to screen readers, invisible on screen. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hidden { display: none !important; }
+
+/* Disabled buddies (offline) should read as inert, not clickable. */
+[disabled] { cursor: default; }
+
+img, svg, video, canvas { max-width: 100%; }
+
+/* ---------- 3. CRT effects ---------- */
+/* Deliberately slow. The original 0.15s flicker was ~6.7 flashes per second,
+   which fails WCAG 2.3.1; 4s is ambience, not a strobe. */
 @keyframes flicker {
   0%, 100% { opacity: 1; }
-  10% { opacity: 0.95; }
-  20% { opacity: 0.98; }
-  30% { opacity: 0.93; }
-  40% { opacity: 1; }
-  50% { opacity: 0.96; }
-  60% { opacity: 0.99; }
-  70% { opacity: 0.94; }
-  80% { opacity: 1; }
-  90% { opacity: 0.97; }
+  50% { opacity: 0.965; }
 }
 
 @keyframes scanline {
   0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
-
-@keyframes vhs-distort {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(2px); }
-  75% { transform: translateX(-2px); }
+  100% { transform: translateY(100dvh); }
 }
 
 .screen-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
   background-size: 100% 4px;
   pointer-events: none;
-  z-index: 10001; /* Above dialup intro */
-  animation: flicker 0.15s infinite;
+  z-index: 10001; /* above the dial-up intro */
+  animation: flicker 4s ease-in-out infinite;
+  will-change: opacity;
 }
 
 .scanline {
@@ -389,15 +154,24 @@ a,
   height: 100px;
   background: linear-gradient(transparent, rgba(255, 255, 255, 0.1), transparent);
   pointer-events: none;
-  z-index: 10002; /* Above screen overlay */
+  z-index: 10002;
   animation: scanline 8s linear infinite;
+  will-change: transform;
 }
+
+/* ---------- 4. Windows ---------- */
+/* Minimized windows. A class rather than an inline style, so the compact
+   layout can set `display` without fighting inline geometry. */
+.window--hidden { display: none !important; }
 
 .desktop {
   padding: 20px;
-  height: 100vh;
+  padding-bottom: calc(var(--taskbar-total) + 12px);
+  height: 100%;
   position: relative;
-  animation: vhs-distort 0.3s infinite;
+  /* The desktop used to carry an infinite 2px transform jitter. It made every
+     element permanently unstable — bad for readability, batteries, and anyone
+     sensitive to motion — for an effect nobody could name. It is gone. */
 }
 
 /* MS-DOS library window */
@@ -438,7 +212,9 @@ a,
 }
 
 /* Desktop icons */
+/* Icons own a fixed left gutter; default window positions start clear of it. */
 .desktop-icons {
+  width: var(--icon-gutter);
   position: absolute;
   top: 10px;
   left: 10px;
@@ -639,17 +415,21 @@ a,
   gap: 2px;
 }
 
+/* 24x24 is the WCAG 2.5.8 (AA) minimum target size. The originals were
+   16x14 and sat 2px apart, so the spacing exception did not apply either. */
 .title-bar-btn {
-  width: 16px;
-  height: 14px;
-  background: #c0c0c0;
+  width: 24px;
+  height: 24px;
+  background: var(--w95-face);
   border: 1px solid;
-  border-color: #ffffff #000000 #000000 #ffffff;
-  font-size: 8px;
+  border-color: var(--w95-white) var(--w95-shadow) var(--w95-shadow) var(--w95-white);
+  font-size: 10px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  flex: 0 0 auto;
 }
 
 .title-bar-btn:active {
@@ -658,7 +438,19 @@ a,
 
 .window-body {
   padding: 8px;
-  background: #c0c0c0;
+  background: var(--w95-face);
+  /* Windows created by WindowManager get their body height from CSS rather
+     than inline styles, so the compact layout can override it cleanly. */
+  height: calc(100% - var(--titlebar-h));
+  overflow: auto;
+}
+/* Shells built by createWindowShell() lay out their own chrome. */
+.desktop > .window:not(.buddy-list):not(.chat-window) > .window-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Contain long buddy names with horizontal scroll in list */
@@ -672,10 +464,10 @@ a,
 
 /* AIM Buddy List */
 .buddy-list {
-  width: 200px;
-  height: 400px;
-  top: 50px;
-  left: 50px;
+  width: 220px;
+  height: 420px;
+  top: 24px;
+  left: calc(var(--icon-gutter) + 16px);
 }
 
 /* Ensure buddy list content cannot force window overflow */
@@ -711,33 +503,54 @@ a,
 }
 
 .buddy-group-header {
-  background: #c0c0c0;
+  background: var(--w95-face);
   padding: 4px;
   border: 1px solid;
-  border-color: #ffffff #000000 #000000 #ffffff;
+  border-color: var(--w95-white) var(--w95-shadow) var(--w95-shadow) var(--w95-white);
   font-size: 11px;
   font-weight: bold;
+}
+
+.aim-logo-sub {
+  font-size: 9px;
+  color: var(--w95-text);
 }
 
 .buddy-list-items {
   background: white;
   border: 2px solid;
-  border-color: #808080 #ffffff #ffffff #808080;
+  border-color: var(--w95-face-dark) var(--w95-white) var(--w95-white) var(--w95-face-dark);
   max-height: 200px;
   overflow-y: auto;
 }
 
+/* Buddies are real buttons now, so reset the button chrome and keep the row look. */
 .buddy-item {
+  width: 100%;
+  min-height: var(--tap);
   padding: 4px 8px;
   font-size: 11px;
   display: flex;
   align-items: center;
   gap: 6px;
+  text-align: left;
+  background: none;
+  border: 0;
 }
 
-.buddy-item:hover {
-  background: #000080;
-  color: white;
+.buddy-item:hover:not([disabled]) {
+  background: var(--w95-select);
+  color: var(--w95-select-text);
+}
+
+.buddy-item.active {
+  background: #b6c8e8;
+}
+.buddy-item.active:hover { background: var(--w95-select); }
+
+.buddy-item[disabled] {
+  color: var(--w95-face-dark);
+  opacity: 1;
 }
 
 .status-icon {
@@ -750,16 +563,15 @@ a,
   flex: 0 0 12px;
 }
 
-.status-away {
-  background: #ffff00;
-}
+.status-away { background: #ffff00; }
+.status-offline { background: var(--w95-face-dark); }
 
 /* AIM Chat Window */
 .chat-window {
-  width: 450px;
-  height: 350px;
-  top: 80px;
-  left: 280px;
+  width: 460px;
+  height: 380px;
+  top: 60px;
+  left: calc(var(--icon-gutter) + 256px);
 }
 .chat-window .window-body { display: flex; flex-direction: column; min-height: 0; }
 .chat-window .chat-input { flex: 0 0 auto; }
@@ -861,12 +673,14 @@ a,
 }
 
 .btn-95 {
-  background: #c0c0c0;
+  background: var(--w95-face);
   border: 2px solid;
-  border-color: #ffffff #000000 #000000 #ffffff;
+  border-color: var(--w95-white) var(--w95-shadow) var(--w95-shadow) var(--w95-white);
   padding: 4px 12px;
-  font-family: 'MS Sans Serif', sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
+  min-height: var(--tap);
+  color: var(--w95-text);
 }
 
 .btn-95:active {
@@ -879,12 +693,12 @@ a,
   bottom: 0;
   left: 0;
   right: 0;
-  height: 28px;
-  background: #c0c0c0;
-  border-top: 2px solid #ffffff;
+  height: var(--taskbar-total);
+  padding: 2px 2px calc(2px + env(safe-area-inset-bottom)) 2px;
+  background: var(--w95-face);
+  border-top: 2px solid var(--w95-white);
   display: flex;
   align-items: center;
-  padding: 2px;
   gap: 4px;
   z-index: 9000;
 }
@@ -892,11 +706,13 @@ a,
   display: flex;
   gap: 4px;
   margin-left: 6px;
-  margin-right: auto; /* push time to the right */
+  margin-right: auto; /* push the clock to the right */
+  min-width: 0;
 }
 
 .start-btn {
-  background: #c0c0c0;
+  min-height: var(--tap);
+  background: var(--w95-face);
   border: 2px solid;
   border-color: #ffffff #000000 #000000 #ffffff;
   padding: 2px 8px;
@@ -913,7 +729,7 @@ a,
 
 /* Taskbar window buttons */
 .task-btn {
-  height: 22px;
+  min-height: var(--tap);
   padding: 2px 8px;
   max-width: 220px;
   overflow: hidden;
@@ -992,17 +808,54 @@ a,
 }
 
 /* Start Menu (windowed) */
-.start-menu-window .window-body { padding: 4px; }
-.start-menu-list { display: flex; flex-direction: column; gap: 2px; }
-.start-menu-window .menu-item {
+/* The Start menu is a popup anchored above the taskbar, not a fake window. */
+.start-menu {
+  position: fixed;
+  left: 4px;
+  bottom: calc(var(--taskbar-total) + 2px);
+  width: 260px;
+  max-height: min(70dvh, 460px);
+  overflow: auto;
+  background: var(--w95-face);
+  border: 2px solid;
+  border-color: var(--w95-face-light) var(--w95-face-dark) var(--w95-face-dark) var(--w95-face-light);
+  box-shadow: 2px 2px 10px rgb(0 0 0 / 0.35);
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 9500;
+}
+.start-menu[hidden] { display: none; }
+
+/* The vertical "Oxford95" spine, like the real thing. */
+.start-menu-banner {
+  flex: 0 0 26px;
+  background: linear-gradient(to bottom, var(--w95-title-a), #1c1c8c);
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: right;
+  padding: 8px 4px;
+  letter-spacing: 1px;
+}
+.start-menu-banner span { color: var(--oxford-brand-gold); }
+
+.start-menu-list { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.start-menu .menu-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: 8px;
+  padding: 6px;
   font-size: 12px;
+  width: 100%;
+  min-height: var(--tap);
+  text-align: left;
   cursor: pointer;
 }
-.start-menu-window .menu-item:hover {
+.start-menu .menu-item:hover,
+.start-menu .menu-item:focus-visible {
   background: #000080;
   color: #ffffff;
 }
@@ -1116,7 +969,7 @@ a,
 .mail-window .mail-toolbar .mail-status { font-size: 12px; color: #202020 !important; padding-top: 3px; }
 .mail-window .mail-sidebar { grid-area: sidebar; width: var(--mail-sidebar-w); border-right: 1px solid #808080; padding: 6px; background: #bdbdbd; display: flex; flex-direction: column; gap: 6px; }
 .mail-window .mail-folders { display: flex; flex-direction: column; gap: 2px; }
-.mail-window .folder-item { padding: 3px 6px; font-size: 12px; cursor: default; border: 1px solid transparent; }
+.mail-window .folder-item { padding: 4px 8px; min-height: var(--tap); display: inline-flex; align-items: center; font-size: 12px; cursor: default; border: 1px solid transparent; }
 .mail-window .folder-item:hover { background: #d8d8d8; }
 .mail-window .folder-item.active { background: #000080; color: #ffffff !important; border-color: #000080; }
 .mail-window .folder-item .badge { display: inline-block; margin-left: 6px; background: #000080; color: #fff !important; padding: 0 4px; border: 1px solid #000; font-size: 11px; line-height: 14px; }
@@ -1138,7 +991,7 @@ a,
 .mail-window .mail-list-header .sorted-asc::after { content: ' \25B2'; font-size: 10px; }
 .mail-window .mail-list-header .sorted-desc::after { content: ' \25BC'; font-size: 10px; }
 .mail-window .mail-columns { display: grid; grid-template-columns: var(--mail-list-columns); column-gap: var(--mail-gutter); }
-.mail-window .mail-list-item { padding: 6px; border-bottom: 1px solid #e0e0e0; cursor: default; }
+.mail-window .mail-list-item { padding: 6px; min-height: var(--tap); border-bottom: 1px solid #e0e0e0; cursor: default; }
 .mail-window .mail-list-item.unread .subject { font-weight: 700; }
 .mail-window .mail-list-item.unread .from { color: #000; }
 .mail-window .mail-list-item:hover { background: #e6f2ff; }
@@ -1343,14 +1196,24 @@ a,
   background: #c0c0c0;
 }
 
-.terminal-window .window-body {
-  padding: 0 !important;
+.terminal-window .window-body,
+.terminal-window .terminal-body-wrap {
+  padding: 0;
   background: #000000;
 }
 
-#terminal-container {
+.terminal-container {
   background: #000000;
   padding: 4px;
+  width: 100%;
+  height: 100%;
+}
+
+.terminal-fallback {
+  color: #fff;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 /* xterm.js overrides for retro look */
@@ -1975,7 +1838,7 @@ a,
 .media-player-window .wmp-controls .wmp-spacer { flex: 1; }
 .media-player-window .wmp-vol { width: 100px; }
 .media-player-window .wmp-playlist { margin-top: 8px; max-height: 120px; overflow: auto; background: #ffffff; border: 1px solid #808080; padding: 4px; }
-.media-player-window .wmp-playlist .pl-item { font-size: 11px; padding: 2px 4px; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media-player-window .wmp-playlist .pl-item { font-size: 11px; padding: 4px; min-height: var(--tap); display: flex; align-items: center; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .media-player-window .wmp-playlist .pl-item:hover { background: #e6f2ff; }
 /* Paint window */
 .paint-window .window-body { display: flex; flex-direction: column; min-height: 0; }
@@ -2000,3 +1863,368 @@ a,
 .paint-window .paint-canvas-wrap { position: relative; flex: 1; min-height: 0; overflow: auto; background: #ffffff; }
 .paint-window .paint-base { position: absolute; inset: 0 auto auto 0; }
 .paint-window .paint-draw { position: absolute; inset: 0 auto auto 0; }
+
+/* ============================================================
+   9. MARKUP INTRODUCED BY THE REFACTOR
+   Styles for elements that replaced ad-hoc inline styling.
+   ============================================================ */
+
+/* Channel tiles are buttons now; strip the button chrome. */
+.channel-tile {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.channel-tile .tile-content,
+.channel-tile .tile-text { display: flex; }
+.channel-tile .tile-title,
+.channel-tile .tile-sub,
+.channel-tile .tile-cta { display: block; }
+
+/* Mail column headers and folder tabs are buttons now. */
+.mail-window .mail-list-header .sortable {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+}
+.mail-window .mail-list-header .sortable:last-child { justify-content: flex-end; }
+.mail-window .folder-item { font: inherit; }
+.mail-window .btn-95[disabled] { color: var(--w95-face-dark); }
+.mail-window .sent-body { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; }
+
+/* Compose window */
+.compose-window .window-body { padding: 8px; }
+.compose-window .compose-body { width: 100%; flex: 1; min-height: 120px; resize: none; font-family: var(--font-ui); }
+.compose-window .form-95 { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+.compose-window .form-95 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; }
+.compose-window .form-95 .row label { width: 60px; margin-bottom: 0; flex: 0 0 60px; }
+.compose-window .compose-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* DOS windows.
+   The emulator builds its own flex layout and absolute overlays inside
+   .dos-canvas, so that element must stay a plain positioned block with a
+   definite size. Anything else (flex centering in particular) makes its
+   sidebar stretch and leaves the game canvas unsized. */
+.dos-window .dos-body { background: #000; position: relative; }
+.dos-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.dos-canvas canvas { image-rendering: pixelated; }
+.dos-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 2;
+}
+.dos-status[hidden] { display: none; }
+.dos-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  background: #000;
+  z-index: 3;
+}
+.dos-error__title { margin-bottom: 8px; }
+.dos-error__msg { color: #ff8080; margin-bottom: 10px; white-space: pre-line; }
+.dos-error__actions { display: flex; gap: 8px; justify-content: center; }
+
+/* Internet Explorer chrome */
+.ie-window .ie-brand { font-size: 11px; margin-right: 6px; }
+.ie-window .ie-toolbar { padding: 4px; background: var(--w95-face); }
+.ie-window .ie-snapshot { cursor: pointer; }
+
+/* Paint */
+.paint-window .paint-opt { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.paint-window .paint-error { position: absolute; inset: 4px 4px auto 4px; z-index: 2; background: #ffffcc; border: 1px solid var(--w95-shadow); padding: 6px; font-size: 11px; }
+
+/* Sign-in screen */
+.dialup-intro .login-hint { font-size: 10px; color: var(--w95-text-dim); margin: 2px 0 6px; }
+.dialup-intro .status-message { margin: 0; }
+.dialup-intro .button-row { margin-top: 10px; }
+.dialup-intro input[aria-invalid="true"] { outline: 2px solid #c00000; }
+
+/* Chat */
+.chat-input { display: flex; gap: 4px; }
+.message-text { overflow-wrap: anywhere; }
+.chat-messages a { color: #0000cc; }
+
+/* ============================================================
+   10. COMPACT LAYOUT — tablet and smartphone
+   ------------------------------------------------------------
+   Below the breakpoint, free-floating windows are unusable: they
+   overflow, they cannot be dragged with a thumb, and stacking them
+   hides content. So every window becomes a full-bleed pane sitting
+   above the taskbar, and the taskbar does the switching. Drag and
+   resize are disabled in JS for the same reason.
+   ============================================================ */
+
+@media (max-width: 900px), (max-height: 520px) {
+  .desktop {
+    padding: 8px;
+    padding-bottom: calc(var(--taskbar-total) + 8px);
+  }
+
+  /* Every window fills the work area. `!important` is load-bearing here:
+     it overrides the inline geometry that dragging and resizing write. */
+  .desktop .window {
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: calc(100dvh - var(--taskbar-total)) !important;
+    max-width: 100vw;
+    border-width: 0 0 2px 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .desktop .window.window--hidden { display: none !important; }
+
+  /* Resize grips have no meaning without a pointer. */
+  .desktop .window .resize-handle { display: none !important; }
+
+  .desktop .window > .window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto !important;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .title-bar {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    /* Dragging is off, so remove the affordance. */
+    cursor: default;
+  }
+  .title-bar-text { font-size: 13px; }
+
+  /* Desktop icons become a wrapping grid rather than one tall column. */
+  .desktop-icons {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+  .desktop-icon { width: auto; }
+
+  /* The buddy list and chat are two halves of one app. Full-bleed would stack
+     them and hide the roster entirely, so split the work area: switcher on top,
+     conversation below — the shape every mobile messenger uses. */
+  .desktop .buddy-list {
+    height: 38dvh !important;
+    max-height: 320px;
+    border-bottom-width: 2px;
+  }
+  .desktop .chat-window {
+    top: min(38dvh, 320px) !important;
+    height: calc(100dvh - var(--taskbar-total) - min(38dvh, 320px)) !important;
+  }
+  .buddy-list .buddy-list-items { max-height: none; }
+  .buddy-list .aim-logo { padding: 4px; margin-bottom: 4px; }
+  .buddy-list .aim-logo-text { font-size: 14px; }
+  .buddy-list .window-body,
+  .chat-window .window-body { padding: 10px; }
+  .chat-messages { font-size: 14px; }
+  .title-bar-text #chatWith { max-width: 40vw; }
+
+  /* Mail collapses to a single column: list on top, reader below. */
+  .mail-window .mail-right {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "list-header" "list" "reader" !important;
+    grid-template-rows: auto minmax(120px, 34%) 1fr !important;
+  }
+  .mail-window .mail-resizer { display: none !important; }
+  .mail-window { --mail-list-columns: 1fr 1fr; }
+  .mail-window .mail-list-item .date,
+  .mail-window .mail-list-header .sortable:last-child { display: none; }
+  .mail-window .mail-toolbar { flex-wrap: wrap; row-gap: 6px; }
+  .mail-window .mail-toolbar .actions { flex: 1 1 100%; }
+
+  /* One channel tile per row reads better than two cramped ones. */
+  .channels-grid { grid-template-columns: 1fr; }
+
+  /* Media player fills the pane and the video grows to match. */
+  .media-player-window .wmp-vol { width: 72px; }
+  .media-player-window .wmp-playlist { max-height: 96px; }
+
+  .slides-header { flex-wrap: wrap; row-gap: 6px; }
+  .slides-view { padding: 10px; }
+
+  .paint-window .paint-toolbar { flex-wrap: wrap; row-gap: 6px; }
+  .paint-window .paint-toolbar .options { flex-wrap: wrap; gap: 8px; }
+
+  .dos-library__grid { grid-template-columns: 1fr; }
+
+  /* Taskbar buttons scroll instead of shrinking into illegibility. */
+  .taskbar-windows {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+  .taskbar-windows::-webkit-scrollbar { display: none; }
+  .task-btn { flex: 0 0 auto; max-width: 132px; }
+
+  .start-menu { width: min(280px, calc(100vw - 16px)); }
+
+  /* Sign-in and connect dialogs must fit a phone. */
+  .dialup-window {
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+  }
+  .logo-img-large { width: 64px; }
+  .logo-text-large { font-size: 26px; }
+  .animation-boxes { gap: 8px; }
+}
+
+/* Phones: fewer columns still, and hide the least useful chrome. */
+@media (max-width: 480px) {
+  .desktop-icons { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+  .desktop-icon .label { font-size: 11px; }
+  .mail-window .mail-toolbar .btn-95 { padding: 4px 8px; }
+  .time-display { display: none; }
+  .aim-logo-text { font-size: 16px; }
+}
+
+/* Touch devices: hit targets big enough to use with a thumb (WCAG 2.5.8). */
+@media (hover: none) {
+  :root { --tap: 44px; }
+
+  /* Comfortably above the 24px AA minimum without swallowing the title bar. */
+  .title-bar-btn {
+    width: 34px;
+    height: 30px;
+    font-size: 12px;
+  }
+  .btn-95,
+  .start-btn,
+  .task-btn,
+  .menu-item,
+  .buddy-item,
+  .folder-item,
+  .file-item,
+  .mail-list-item,
+  .pl-item {
+    min-height: var(--tap);
+  }
+  .btn-95 { padding: 8px 14px; }
+  .buddy-item,
+  .menu-item { padding: 10px 12px; font-size: 13px; }
+  .mail-list-item { padding: 10px 8px; }
+  .desktop-icon { padding: 6px 2px; }
+
+  /* Hover styling latches on touch; :active is the honest signal. */
+  .buddy-item:hover,
+  .channel-tile:hover,
+  .mail-list-item:hover,
+  .menu-item:hover { background: inherit; color: inherit; }
+  .buddy-item:active,
+  .menu-item:active { background: var(--w95-select); color: var(--w95-select-text); }
+
+  /* Custom SVG cursors are meaningless without a pointer. */
+  body,
+  button, a, [role="button"], .buddy-item, .title-bar { cursor: auto; }
+}
+
+/* Sliders need a real target height on every device, not just touch. */
+input[type="range"] {
+  height: var(--tap);
+  accent-color: var(--w95-title-a);
+}
+@media (pointer: coarse) {
+  input[type="range"] { height: 32px; }
+}
+
+/* ============================================================
+   11. MOTION, CONTRAST AND PRINT
+   ============================================================ */
+
+/* The CRT flicker ran at ~6.7Hz, above the 3Hz limit in WCAG 2.3.1
+   (Three Flashes or Below Threshold), and the desktop jitter never
+   stopped. Both are now slow enough to be ambience, and both are
+   removed entirely for anyone who asks for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .screen-overlay,
+  .scanline { animation: none !important; }
+  .scanline { display: none; }
+  .desktop { animation: none !important; }
+}
+
+@media (prefers-contrast: more) {
+  .message-time,
+  .dos-library__item-note,
+  .tile-sub { color: var(--w95-text) !important; }
+  .window { border-color: #000 #000 #000 #000; }
+}
+
+@media print {
+  .taskbar,
+  .screen-overlay,
+  .scanline,
+  .desktop-icons,
+  .start-menu,
+  .title-bar-controls { display: none !important; }
+  .desktop { height: auto; padding: 0; animation: none; }
+  .window { position: static !important; width: auto !important; height: auto !important; box-shadow: none; page-break-inside: avoid; }
+  body { background: #fff; overflow: visible; height: auto; }
+}
+
+
+/* Start menu: "Show Desktop" sits below a rule, like Windows' Shut Down. */
+.start-menu .menu-item--sep {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--w95-face-dark);
+  box-shadow: 0 -1px 0 var(--w95-white) inset;
+}
+.start-menu-icon.desktop-icon-glyph {
+  background: var(--w95-desktop);
+  position: relative;
+  border-color: var(--w95-face-dark);
+}
+.start-menu-icon.desktop-icon-glyph::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 4px;
+  background: var(--w95-face);
+  border: 1px solid var(--w95-shadow);
+}
