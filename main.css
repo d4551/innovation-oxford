@@ -1144,7 +1144,10 @@ img, svg, video, canvas { max-width: 100%; }
 .channels-brand { display: flex; align-items: center; gap: 8px; }
 .channels-logo { height: 28px; }
 .channels-title { font-weight: 700; color: #fff; font-size: 14px; }
-.channels-deck-pill { background: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.6); padding: 4px 12px; font-size: 11px; color: #fff; border-radius: 2px; }
+/* Was white on a 30%-white wash over the blue gradient — about 2:1, and it
+   showed: the deck name was the least readable text in the app. Solid plate,
+   navy on white. */
+.channels-deck-pill { background: #ffffff; border: 1px solid #000080; padding: 4px 12px; font-size: 11px; font-weight: 700; color: #000080; border-radius: 2px; }
 .channels-content { position: relative; flex: 1; min-height: 0; overflow: auto; padding: 12px; background: #f5f5f5; border-top: 1px solid #000080; }
 .channels-window .mini-window { position: absolute; }
 .mini-content { background: #ffffff; }

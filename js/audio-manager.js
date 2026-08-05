@@ -71,13 +71,23 @@ class AudioManager {
     }
   }
 
+  /** True when this sound would actually be heard. */
+  canPlay(key) {
+    return !this.muted && !!this.sounds[key];
+  }
+
   /**
    * Play with a hard cap in milliseconds. `onComplete` fires on natural end or
    * when the cap elapses, whichever comes first — exactly once.
+   *
+   * With nothing to play the cap is still honoured rather than shortened: a
+   * caller pacing an animation against it has one timeline either way. Callers
+   * that want a brisker silent path should ask `canPlay()` and pass a shorter
+   * cap, which is a decision only they can make.
    */
   playWithCap(howl, capMs, onComplete) {
     if (!howl || this.muted) {
-      if (onComplete) setTimeout(() => onComplete(), Math.min(capMs || 0, 1200));
+      if (onComplete) setTimeout(() => onComplete(), Math.max(0, capMs || 0));
       return null;
     }
 

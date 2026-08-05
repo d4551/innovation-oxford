@@ -8,6 +8,10 @@
 // ============================================
 
 const MAX_DIALUP_MS = 9000;
+// With no sound to wait for there is nothing to pace against — but the three
+// progress boxes still have to fill before "Connected" appears, or the screen
+// contradicts itself. Long enough to read, short enough not to be a wait.
+const SILENT_DIALUP_MS = 2400;
 const WAIT_AFTER_DIAL_MS = 1200;
 const FADE_MS = 700;
 // Absolute ceiling from "Sign In" to desktop, regardless of audio state.
@@ -141,8 +145,14 @@ class DialupIntro {
     const statusText = this.container.querySelector('#dialup-status-text');
     const boxes = Array.from(this.container.querySelectorAll('.aol-box'));
 
+    // One timeline drives both the boxes and the hand-off to "Connected", so
+    // they can never disagree. Muted or without Howler there is no sound to
+    // pace against, and nine seconds of silence is not a connection sequence.
+    const audible = this.audioManager?.canPlay?.('dialup');
     const dialDuration = this.audioManager?.durationMs?.('dialup') || 0;
-    const targetDialMs = dialDuration > 0 ? Math.min(dialDuration, MAX_DIALUP_MS) : MAX_DIALUP_MS;
+    const targetDialMs = audible
+      ? (dialDuration > 0 ? Math.min(dialDuration, MAX_DIALUP_MS) : MAX_DIALUP_MS)
+      : SILENT_DIALUP_MS;
 
     // Fill the three boxes proportionally across the dial-up sound.
     [0.11, 0.44, 0.77].forEach((pct, i) => {
