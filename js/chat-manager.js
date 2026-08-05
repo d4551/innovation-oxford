@@ -57,18 +57,23 @@ class ChatManager {
     const container = document.querySelector('.buddy-list .buddy-groups');
     if (!container) return;
 
+    // A real <ul>/<li>/<button> tree. Putting role="listitem" on the button
+    // itself would override its button role, so assistive tech would no longer
+    // announce it as something you can activate.
     const group = (label, buddies, extraClass = '') => `
       <section class="buddy-group">
         <h2 class="buddy-group-header">▼ ${label} (${buddies.length})</h2>
-        <div class="buddy-list-items ${extraClass}" role="list">
+        <ul class="buddy-list-items ${extraClass}">
           ${buddies.map((b) => `
-            <button type="button" class="buddy-item buddy-item--${b.status}" role="listitem"
-                    data-buddy="${Utils.escapeAttr(b.name)}" ${b.status === 'offline' ? 'disabled aria-disabled="true"' : ''}>
-              <span class="status-icon status-${b.status}" aria-hidden="true"></span>
-              <span class="buddy-name">${Utils.escapeHtml(b.name)}</span>
-              <span class="visually-hidden">, ${b.status}</span>
-            </button>`).join('')}
-        </div>
+            <li>
+              <button type="button" class="buddy-item buddy-item--${b.status}"
+                      data-buddy="${Utils.escapeAttr(b.name)}" ${b.status === 'offline' ? 'disabled' : ''}>
+                <span class="status-icon status-${b.status}" aria-hidden="true"></span>
+                <span class="buddy-name">${Utils.escapeHtml(b.name)}</span>
+                <span class="visually-hidden">, ${b.status}</span>
+              </button>
+            </li>`).join('')}
+        </ul>
       </section>`;
 
     container.innerHTML = group('Online', Buddies.online) + group('Offline', Buddies.offline, 'is-offline');

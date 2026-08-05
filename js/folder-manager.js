@@ -35,7 +35,7 @@ class FolderWindow extends AppWindow {
       <div class="folder-toolbar">
         <span class="path"></span>
       </div>
-      <div class="folder-content"><div class="files-grid" role="list"></div></div>
+      <div class="folder-content"><ul class="files-grid"></ul></div>
     `;
     this.$('.path').textContent = `C:\\Desktop\\${this.title}`;
     this.renderFiles(this.$('.files-grid'));
@@ -48,20 +48,20 @@ class FolderWindow extends AppWindow {
   renderFiles(container) {
     if (!container) return;
     if (!this.files.length) {
-      container.innerHTML = '<div class="empty">This folder is empty.</div>';
+      container.innerHTML = '<li class="empty">This folder is empty.</li>';
       return;
     }
 
     container.innerHTML = '';
     this.files.forEach((file) => {
-      const el = document.createElement('div');
+      const li = document.createElement('li');
+      const el = document.createElement('button');
+      el.type = 'button';
       el.className = `file-item ${file.type || 'file'}`;
-      el.setAttribute('role', 'listitem');
-      el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `Open ${file.name}`);
       el.innerHTML = `
-        <div class="file-icon ${file.type === 'video' ? 'file-icon-video' : 'file-icon-generic'}" aria-hidden="true"></div>
-        <div class="file-name"></div>
+        <span class="file-icon ${file.type === 'video' ? 'file-icon-video' : 'file-icon-generic'}" aria-hidden="true"></span>
+        <span class="file-name"></span>
       `;
       const nameEl = el.querySelector('.file-name');
       nameEl.textContent = file.name;
@@ -82,10 +82,9 @@ class FolderWindow extends AppWindow {
       // double-tap is reserved by the platform for zoom.
       el.addEventListener('dblclick', open);
       el.addEventListener('click', () => { if (Utils.isTouch()) open(); });
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-      });
-      container.appendChild(el);
+      // Enter/Space already activate a <button>; no keydown handler needed.
+      li.appendChild(el);
+      container.appendChild(li);
     });
   }
 }

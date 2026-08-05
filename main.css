@@ -40,7 +40,7 @@
   --taskbar-h: 32px;
   /* Total space the taskbar occupies, including the home-indicator inset. */
   --taskbar-total: calc(var(--taskbar-h) + env(safe-area-inset-bottom));
-  --titlebar-h: 28px;
+  --titlebar-h: 30px;
   --icon-gutter: 96px;
   --win-gap: 8px;
   --font-ui: 'MS Sans Serif', 'Microsoft Sans Serif', Tahoma, Geneva, Verdana, sans-serif;
@@ -213,6 +213,15 @@ img, svg, video, canvas { max-width: 100%; }
 
 /* Desktop icons */
 /* Icons own a fixed left gutter; default window positions start clear of it. */
+/* Real list markup: <ul><li><button>. The list bullets are the only thing
+   that needs resetting. */
+.desktop-icons,
+.buddy-list-items,
+.folder-window .files-grid,
+.start-menu-list {
+  list-style: none;
+}
+
 .desktop-icons {
   width: var(--icon-gutter);
   position: absolute;
@@ -223,15 +232,22 @@ img, svg, video, canvas { max-width: 100%; }
   gap: 12px;
   z-index: 1; /* keep under all app windows */
 }
+.desktop-icons > li { display: block; }
+
 .desktop-icon {
-  width: 90px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   user-select: none;
   cursor: default;
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px 2px;
+  font: inherit;
 }
+.desktop-icon.selected { border-color: #ffffff80; background: #00000030; }
 .desktop-icon .icon {
   width: 32px;
   height: 32px;
@@ -415,11 +431,12 @@ img, svg, video, canvas { max-width: 100%; }
   gap: 2px;
 }
 
-/* 24x24 is the WCAG 2.5.8 (AA) minimum target size. The originals were
-   16x14 and sat 2px apart, so the spacing exception did not apply either. */
+/* WCAG 2.5.8 (AA) requires 24x24; 26 keeps clear of sub-pixel rounding.
+   The originals were 16x14 and sat 2px apart, so the spacing exception did
+   not apply to them either. */
 .title-bar-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   background: var(--w95-face);
   border: 1px solid;
   border-color: var(--w95-white) var(--w95-shadow) var(--w95-shadow) var(--w95-white);
@@ -453,9 +470,9 @@ img, svg, video, canvas { max-width: 100%; }
   overflow: hidden;
 }
 
-/* Contain long buddy names with horizontal scroll in list */
-.buddy-list .buddy-list-items { overflow-x: auto; }
-.buddy-list .buddy-item { white-space: nowrap; }
+/* Long buddy names truncate rather than forcing a nested scroller. */
+.buddy-list .buddy-item { min-width: 0; }
+.buddy-list .buddy-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Contain long names in chat header and title */
 .chat-header { display: flex; align-items: center; gap: 6px; }
@@ -475,9 +492,6 @@ img, svg, video, canvas { max-width: 100%; }
 .buddy-list .buddy-list-items {
   width: 100%;
   max-width: 100%;
-  /* Let the whole buddy list body scroll vertically to avoid nested scrollbars */
-  overflow-y: visible;
-  overflow-x: auto; /* allow horizontal scroll for long names */
   box-sizing: border-box;
 }
 .buddy-list .buddy-item { min-width: 0; }
@@ -520,8 +534,6 @@ img, svg, video, canvas { max-width: 100%; }
   background: white;
   border: 2px solid;
   border-color: var(--w95-face-dark) var(--w95-white) var(--w95-white) var(--w95-face-dark);
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 /* Buddies are real buttons now, so reset the button chrome and keep the row look. */
@@ -632,8 +644,9 @@ img, svg, video, canvas { max-width: 100%; }
 }
 
 .message-time {
-  color: #808080;
-  font-size: 9px;
+  /* #808080 on white is 3.54:1 and fails WCAG 1.4.3 (AA, 4.5:1). */
+  color: #6b6b6b;
+  font-size: 10px;
 }
 
 .chat-input {
@@ -1800,7 +1813,8 @@ img, svg, video, canvas { max-width: 100%; }
 .folder-window .folder-content { flex: 1; min-height: 0; overflow: auto; background: #ffffff; border-top: 1px solid #808080; display: grid; place-items: center; }
 .folder-window .folder-content .empty { font-size: 12px; color: #333; }
 .folder-window .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; width: 100%; padding: 10px; place-items: stretch; }
-.folder-window .file-item { display: grid; grid-template-rows: 64px auto; align-items: center; justify-items: center; gap: 6px; cursor: default; padding: 6px; border: 1px solid transparent; }
+.folder-window > .window-body .files-grid > li { display: block; }
+.folder-window .file-item { width: 100%; background: none; font: inherit; color: inherit; display: grid; grid-template-rows: 64px auto; align-items: center; justify-items: center; gap: 6px; cursor: default; padding: 6px; border: 1px solid transparent; }
 .folder-window .file-item:focus, .folder-window .file-item.selected { border-color: #000080; background: #e6f2ff; outline: none; }
 .folder-window .file-icon { width: 48px; height: 48px; border: 1px solid #808080; background: #c0c0c0; position: relative; }
 .folder-window .file-icon-video { background: linear-gradient(135deg, #111 0%, #333 100%); }

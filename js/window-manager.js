@@ -25,6 +25,42 @@ class WindowManager {
   constructor() {
     this.windows = new Map();
     this.zIndexCounter = 1000;
+    this.cascadeStep = 0;
+  }
+
+  /**
+   * Where the next window should open.
+   *
+   * Centring every window puts them all in the same spot, so each new one
+   * completely buries the title bar of the one before — you cannot see, let
+   * alone click, the controls underneath. Windows cascaded for this reason, so
+   * we do too: each window steps down and right by more than a title bar's
+   * height, and the run restarts when it would leave the work area.
+   */
+  nextCascadePosition(width, height) {
+    const area = Utils.workArea();
+    const titleBar = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--titlebar-h'), 10) || 30;
+    const stepX = 32;
+    const stepY = titleBar + 6;
+
+    const baseLeft = Math.max(Utils.isCompact() ? 8 : 116, Math.round((area.width - width) / 2) - 120);
+    const baseTop = 24;
+
+    const maxSteps = Math.max(
+      1,
+      Math.min(
+        Math.floor((area.width - width - baseLeft) / stepX),
+        Math.floor((area.height - height - baseTop) / stepY),
+      ),
+    );
+    const step = this.cascadeStep % Math.max(1, maxSteps);
+    this.cascadeStep += 1;
+
+    return {
+      left: Utils.clamp(baseLeft + step * stepX, 0, Math.max(0, area.width - width)),
+      top: Utils.clamp(baseTop + step * stepY, 0, Math.max(0, area.height - height)),
+    };
   }
 
   init() {

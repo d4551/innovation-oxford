@@ -23,9 +23,8 @@ class DesktopIconsManager {
     const desktop = document.querySelector('.desktop');
     if (!desktop) return;
 
-    this.container = document.createElement('div');
+    this.container = document.createElement('ul');
     this.container.className = 'desktop-icons';
-    this.container.setAttribute('role', 'list');
     this.container.setAttribute('aria-label', 'Desktop shortcuts');
     desktop.appendChild(this.container);
     this.render();
@@ -50,15 +49,17 @@ class DesktopIconsManager {
   render() {
     this.container.replaceChildren();
     this.icons.forEach((cfg) => {
-      const item = document.createElement('div');
+      const li = document.createElement('li');
+      const item = document.createElement('button');
+      item.type = 'button';
       item.className = 'desktop-icon';
       item.dataset.id = cfg.id;
-      item.tabIndex = 0;
-      item.setAttribute('role', 'listitem');
       item.setAttribute('aria-label', `Open ${cfg.label}`);
-      item.innerHTML = `<div class="icon ${cfg.iconClass}" aria-hidden="true"></div><div class="label"></div>`;
+      item.innerHTML = '<span class="icon" aria-hidden="true"></span><span class="label"></span>';
+      item.querySelector('.icon').classList.add(cfg.iconClass);
       item.querySelector('.label').textContent = cfg.label;
-      this.container.appendChild(item);
+      li.appendChild(item);
+      this.container.appendChild(li);
     });
   }
 

@@ -102,6 +102,22 @@ Window visibility is the `.window--hidden` class rather than an inline
 `display`, so the compact layout can own `display` without fighting inline
 styles written by dragging and resizing.
 
+## Checks
+
+```sh
+npx eslint js/ main.js      # config in eslint.config.mjs
+```
+
+The site was verified with Playwright at 1440x900, 820x1180 and 390x844:
+every app clicked and typed through, plus axe-core scans (WCAG 2.0/2.1/2.2 A
+and AA, and best-practice) on the sign-in screen, the bare desktop and with
+every app open. Zero violations, zero console errors, zero horizontal overflow.
+
+Only Chromium is available in the environment used for those runs, so Firefox
+and Safari have not been exercised automatically. Nothing in the code is
+engine-specific — the APIs used (Pointer Events, `dvh`, `env()`, `matchMedia`,
+`:focus-visible`) are supported across all current engines.
+
 ## Dependencies
 
 Everything is vendored under `vendor/` — there are no runtime requests to any

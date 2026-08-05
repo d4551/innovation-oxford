@@ -53,13 +53,14 @@ class AppWindow {
     }
 
     const box = Utils.fitBox(this.preferredWidth, this.preferredHeight);
+    const at = windowManager.nextCascadePosition(box.width, box.height);
     const shell = windowManager.createWindowShell({
       title: this.title,
       className: this.className,
       width: `${box.width}px`,
       height: `${box.height}px`,
-      top: `${box.top}px`,
-      left: `${box.left}px`,
+      top: `${at.top}px`,
+      left: `${at.left}px`,
       controls: this.controlsConfig,
     });
 

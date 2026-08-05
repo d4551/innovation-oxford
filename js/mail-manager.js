@@ -156,8 +156,10 @@ class MailManager extends AppWindow {
   }
 
   renderBody(body) {
+    // `aria-sort` is only valid on a columnheader/rowheader, so the sort state
+    // travels in the button's accessible name instead.
     const listHeader = MAIL_COLUMNS
-      .map((c) => `<button type="button" class="sortable" data-key="${c.key}" aria-label="Sort by ${c.label}">${c.label}</button>`)
+      .map((c) => `<button type="button" class="sortable" data-key="${c.key}">${c.label}</button>`)
       .join('');
     const readerHeader = MAIL_COLUMNS
       .map((c) => `<div class="hdr-row"><span class="lbl">${c.label}:</span> <span class="val" data-hdr="${c.key}"></span></div>`)
@@ -184,7 +186,8 @@ class MailManager extends AppWindow {
           <div class="mail-list-header mail-columns">${listHeader}</div>
           <div class="mail-list mail-scrollable" role="listbox" aria-label="Message list" tabindex="0"></div>
           <div class="mail-resizer" role="separator" aria-orientation="vertical" tabindex="0"
-               aria-label="Resize message list" title="Drag or use arrow keys to resize"></div>
+               aria-label="Resize message list" aria-valuemin="20" aria-valuemax="80" aria-valuenow="42"
+               title="Drag or use arrow keys to resize"></div>
           <div class="mail-reader">
             <div class="mail-reader-header">${readerHeader}</div>
             <div class="mail-reader-body mail-scrollable" tabindex="0"></div>
@@ -290,7 +293,9 @@ class MailManager extends AppWindow {
 
     const applyRatio = (r) => {
       this.listRatio = Utils.clamp(r, 0.2, 0.8);
-      right.style.setProperty('--mail-list-w', `${Math.round(this.listRatio * 100)}%`);
+      const pct = Math.round(this.listRatio * 100);
+      right.style.setProperty('--mail-list-w', `${pct}%`);
+      resizer.setAttribute('aria-valuenow', String(pct));
     };
 
     let pointerId = null;
@@ -348,6 +353,7 @@ class MailManager extends AppWindow {
       const ratio = Utils.clamp(Number.isFinite(this.listRatio) ? this.listRatio : MAIL_DEFAULT_LIST_RATIO, 0.2, 0.8);
       this.listRatio = ratio;
       right.style.setProperty('--mail-list-w', `${(ratio * 100).toFixed(1)}%`);
+      this.$('.mail-resizer')?.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
       right.classList.toggle('preview-off', this.previewOff);
     }
     const btn = this.$('.btn-preview');
@@ -403,10 +409,14 @@ class MailManager extends AppWindow {
 
   updateHeaderSortIndicators() {
     this.$$('.sortable').forEach((el) => {
+      const column = MAIL_COLUMNS.find((c) => c.key === el.dataset.key);
       const sorted = el.dataset.key === this.sortKey;
-      el.classList.toggle('sorted-asc', sorted && this.sortDir === 'asc');
-      el.classList.toggle('sorted-desc', sorted && this.sortDir === 'desc');
-      el.setAttribute('aria-sort', sorted ? (this.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+      const ascending = this.sortDir === 'asc';
+      el.classList.toggle('sorted-asc', sorted && ascending);
+      el.classList.toggle('sorted-desc', sorted && !ascending);
+      el.setAttribute('aria-label', sorted
+        ? `Sort by ${column.label}, currently ${ascending ? 'ascending' : 'descending'}`
+        : `Sort by ${column.label}`);
     });
   }
 
