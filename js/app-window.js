@@ -40,6 +40,7 @@ class AppWindow {
     this.windowEl = null;
     this.bodyEl = null;
     this.titleBarEl = null;
+    this.returnFocusTo = null;
 
     // Registry so global actions (Show Desktop) can drive real lifecycle
     // methods instead of poking classes and skipping onHide().
@@ -50,6 +51,7 @@ class AppWindow {
 
   /** Open the window, creating it on first call and restoring it afterwards. */
   open(...args) {
+    this.rememberFocus();
     if (this.windowEl) {
       this.restore();
       this.onShow(...args);
@@ -80,8 +82,62 @@ class AppWindow {
     this.renderBody(this.bodyEl, shell);
     this.registerTaskbar();
     this.activate();
+    // Before onShow, so an app that wants a particular field focused can say so
+    // there and win.
+    this.focusWindow();
     this.onShow(...args);
     return this.windowEl;
+  }
+
+  // ---------- focus ----------
+
+  /**
+   * Where focus should go when this window closes. Captured on every open, so
+   * a window reopened from the Start menu returns you to the Start menu and one
+   * reopened from the taskbar returns you to the taskbar.
+   */
+  rememberFocus() {
+    const el = document.activeElement;
+    this.returnFocusTo = el && el !== document.body && !this.windowEl?.contains(el) ? el : null;
+  }
+
+  /**
+   * Move focus to the window itself rather than to whichever control happens to
+   * be first in the markup — which would be a title-bar button. The window is
+   * `tabindex="-1"` and named, so it announces itself and the next Tab goes
+   * into its content.
+   */
+  focusWindow() {
+    if (!this.windowEl) return;
+    try { this.windowEl.focus({ preventScroll: true }); } catch (_) { /* pre-options browsers */ }
+  }
+
+  /** True when focus currently sits inside this window. */
+  holdsFocus() {
+    return !!this.windowEl && this.windowEl.contains(document.activeElement);
+  }
+
+  /**
+   * Hand focus back after this window goes away. Prefers wherever it came from,
+   * then the front-most window still open, and finally the Start button — never
+   * `<body>`, which would send the next Tab back to the top of the document.
+   */
+  releaseFocus() {
+    const candidates = [
+      this.returnFocusTo,
+      ...[...AppWindow.instances]
+        .filter((app) => app !== this && app.isOpen && !app.isHidden)
+        .sort((a, b) => (parseInt(a.windowEl.style.zIndex, 10) || 0) - (parseInt(b.windowEl.style.zIndex, 10) || 0))
+        .map((app) => app.windowEl)
+        .reverse(),
+      document.querySelector('.start-btn'),
+    ];
+    for (const el of candidates) {
+      if (!el || !el.isConnected || el.closest('[inert]')) continue;
+      if (el.offsetParent === null && el !== document.documentElement) continue;
+      try { el.focus({ preventScroll: true }); } catch (_) { continue; }
+      if (document.activeElement === el) return;
+    }
   }
 
   /** Subclasses fill the window body here. */
@@ -149,12 +205,17 @@ class AppWindow {
     // `display` without fighting inline geometry written by drag/resize.
     this.windowEl.classList.remove('window--hidden');
     this.activate();
+    this.focusWindow();
   }
 
   minimize() {
     if (!this.windowEl) return;
+    // Focus cannot stay in a window that is about to be display:none — the
+    // browser would drop it on <body> and the next Tab would start over.
+    const held = this.holdsFocus();
     this.windowEl.classList.add('window--hidden');
     this.setTaskbarActive(false);
+    if (held) this.releaseFocus();
     this.onHide();
   }
 
@@ -195,6 +256,7 @@ class AppWindow {
 
   close() {
     if (!this.windowEl) return;
+    const held = this.holdsFocus();
     this.onClose();
     windowManager.closeWindow(this.windowEl);
     this.windowEl = null;
@@ -205,6 +267,7 @@ class AppWindow {
     // otherwise leave every closed window in the registry for ever, and
     // Show Desktop would walk a list that only grows.
     if (this.forgetOnClose) AppWindow.instances.delete(this);
+    if (held) this.releaseFocus();
   }
 
   // ---------- conveniences for subclasses ----------
@@ -215,6 +278,8 @@ class AppWindow {
     this.title = text;
     const label = this.titleBarEl && this.titleBarEl.querySelector('.title-bar-label');
     if (label) label.textContent = text;
+    // The window is a named region; its name has to follow its title.
+    if (this.windowEl) this.windowEl.setAttribute('aria-label', text);
   }
 }
 

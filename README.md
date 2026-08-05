@@ -107,6 +107,13 @@ Window visibility is the `.window--hidden` class rather than an inline
 `display`, so the compact layout can own `display` without fighting inline
 styles written by dragging and resizing.
 
+Each window is a named `region` and a focus target. Opening one moves focus to
+the window itself — not to whichever control happens to be first in the markup,
+which would be a title-bar button — so it announces its name and the next Tab
+lands inside it. Closing or minimizing hands focus back to wherever it came
+from, then the front-most window still open, then the Start button. Never
+`<body>`, which would send the next Tab to the top of the document.
+
 ## Checks
 
 ```sh

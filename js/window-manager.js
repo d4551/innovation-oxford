@@ -114,6 +114,12 @@ class WindowManager {
     const desktop = document.querySelector('.desktop') || document.body;
     const win = document.createElement('div');
     win.className = `window ${className}`.trim();
+    // Each window is a named area of the desktop, and a focus target in its
+    // own right: opening one moves focus here, so the window announces itself
+    // and the next Tab lands inside it instead of at the top of the document.
+    win.setAttribute('role', 'region');
+    win.setAttribute('aria-label', title);
+    win.tabIndex = -1;
     Object.assign(win.style, {
       width, height, top, left,
       position: 'absolute',
