@@ -1802,8 +1802,6 @@ img, svg, video, canvas { max-width: 100%; }
 .retro-ad .ad-copy { margin: 8px 0; }
 .retro-ad .ad-cta { display: inline-block; background: #ffcc00; color: #000080; border: 2px solid #000080; padding: 4px 8px; font-weight: 900; box-shadow: 2px 2px #000; }
 .retro-ad .ad-fine { font-size: 11px; color: #202020; margin-top: 8px; }
-.retro-ad .ad-sticker { display:inline-block; transform: rotate(-8deg); background:#ff0066; color:#fff; font-weight:900; padding:4px 6px; border:2px solid #000; box-shadow:2px 2px #000; }
-.retro-ad .ad-ribbon { background:#000080; color:#fff; padding:2px 6px; font-weight:700; display:inline-block; }
 .task-icon.folder-icon { background: #d9a441; position: relative; }
 .task-icon.folder-icon::before { content: ''; position: absolute; top: -2px; left: 2px; width: 8px; height: 4px; background: #e6c177; border: 1px solid #8b5a00; }
 /* Folder window */
@@ -1815,7 +1813,7 @@ img, svg, video, canvas { max-width: 100%; }
 .folder-window .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; width: 100%; padding: 10px; place-items: stretch; }
 .folder-window > .window-body .files-grid > li { display: block; }
 .folder-window .file-item { width: 100%; background: none; font: inherit; color: inherit; display: grid; grid-template-rows: 64px auto; align-items: center; justify-items: center; gap: 6px; cursor: default; padding: 6px; border: 1px solid transparent; }
-.folder-window .file-item:focus, .folder-window .file-item.selected { border-color: #000080; background: #e6f2ff; outline: none; }
+.folder-window .file-item:focus-visible { border-color: #000080; background: #e6f2ff; }
 .folder-window .file-icon { width: 48px; height: 48px; border: 1px solid #808080; background: #c0c0c0; position: relative; }
 .folder-window .file-icon-video { background: linear-gradient(135deg, #111 0%, #333 100%); }
 .folder-window .file-icon-video::after { content: ''; position: absolute; left: 18px; top: 14px; width: 14px; height: 20px; background: #ffd166; clip-path: polygon(0 0, 100% 50%, 0 100%); }
@@ -1836,10 +1834,11 @@ img, svg, video, canvas { max-width: 100%; }
 .media-player-window .wmp-visual.hidden { display: none; }
 .media-player-window .wmp-visual .bar { width: 10px; background: #00ff88; box-shadow: 0 0 8px rgba(0,255,136,0.6); height: 10px; animation: none; }
 .media-player-window .wmp-visual--active .bar { animation: eq-bounce 1s infinite ease-in-out; }
-.media-player-window .wmp-visual--active .b2 { animation-delay: 0.15s; }
-.media-player-window .wmp-visual--active .b3 { animation-delay: 0.3s; }
-.media-player-window .wmp-visual--active .b4 { animation-delay: 0.45s; }
-.media-player-window .wmp-visual--active .b5 { animation-delay: 0.6s; }
+/* Stagger by position, so the bars need no per-bar classes. */
+.media-player-window .wmp-visual--active .bar:nth-child(2) { animation-delay: 0.15s; }
+.media-player-window .wmp-visual--active .bar:nth-child(3) { animation-delay: 0.30s; }
+.media-player-window .wmp-visual--active .bar:nth-child(4) { animation-delay: 0.45s; }
+.media-player-window .wmp-visual--active .bar:nth-child(5) { animation-delay: 0.60s; }
 @keyframes eq-bounce {
   0%, 100% { height: 10px; }
   50% { height: 60px; }
