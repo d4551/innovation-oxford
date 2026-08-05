@@ -194,6 +194,8 @@ class MediaPlayerManager extends AppWindow {
       this.hideClickToStart();
       this.updateUIState('stopped');
       this.setStatus("This browser can't play this file");
+      this.updateTimerDisplay(true);
+      this.updateSeekUI(true);
     }, { once: true });
   }
 
@@ -241,6 +243,13 @@ class MediaPlayerManager extends AppWindow {
   handleControl(action) {
     if (!this.mediaEl) return;
     const media = this.mediaEl;
+    // Nothing the transport does can fix a file the browser cannot decode, and
+    // overwriting the explanation with "Stopped" leaves the user pressing
+    // buttons at a player that never says why.
+    if (this.hasError) {
+      this.flashControl(action);
+      return;
+    }
     switch (action) {
       case 'play':
         media.play().catch(() => this.showClickToStart());
@@ -409,6 +418,13 @@ class MediaPlayerManager extends AppWindow {
 
   updateTimerDisplay(force) {
     if (!this.timerEl || !this.mediaEl) return;
+    // A source that failed to decode keeps whatever position the element was
+    // left at, so the readout would show the *previous* track's time against
+    // one that never started — "00:05 / --:--" for something at a standstill.
+    if (this.hasError) {
+      this.timerEl.textContent = '--:-- / --:--';
+      return;
+    }
     const current = this.mediaEl.currentTime || 0;
     const duration = Number.isFinite(this.mediaEl.duration) ? this.mediaEl.duration : 0;
     if (!force && !duration && !current) {
@@ -420,7 +436,9 @@ class MediaPlayerManager extends AppWindow {
 
   updateSeekUI(force) {
     if (!this.seekEl || !this.mediaEl) return;
-    const duration = Number.isFinite(this.mediaEl.duration) ? Math.floor(this.mediaEl.duration) : 0;
+    const duration = this.hasError || !Number.isFinite(this.mediaEl.duration)
+      ? 0
+      : Math.floor(this.mediaEl.duration);
     if (duration <= 0) {
       this.seekEl.max = '0';
       this.seekEl.value = '0';
