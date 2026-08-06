@@ -77,6 +77,15 @@ the tree through Jekyll, Jekyll drops the `vendor` folder where the js-dos
 runtime and its WebAssembly emulators live, and every DOS game 404s on a site
 that worked a treat locally.
 
+To find out whether a deployment is serving everything, point this at it:
+
+```sh
+BASE=https://example.com/innovation-oxford npm run check:deploy
+```
+
+It asks for all 38 files the site loads, the lazy ones included, and names
+anything that comes back wrong. No browser required.
+
 There is nothing to install and nothing to build. The `package.json` is there
 for the checks only. The site ships zero dependencies and loads nothing at
 runtime that isn't already in this repo. `tools/` wants Python 3 and the checks
@@ -458,6 +467,7 @@ Then, fastest to slowest:
 | `npm run check:play` | Fifteen scenarios driven end to end as a person would |
 | `npm run check:audit` | Visual probes, tap targets, contrast and overflow at three viewports |
 | `npm run check:origin` | The host and player control channel obeys the host and ignores a third window |
+| `npm run check:deploy` | A deployment is serving all 38 files the site loads (no browser needed) |
 | `npm run check:interact` | The full suite, 211 steps across three viewports |
 
 `npm run check:dos-file` opens the site over `file://` and checks the DOS
