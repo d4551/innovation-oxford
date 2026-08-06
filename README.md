@@ -393,13 +393,16 @@ cases, each named in the window within seconds:
 flowchart TD
     Q{"Game won't start"} --> A{"Is the page on file:// ?"}
     A -->|"yes"| A1["<b>Names the cause</b><br/>plus the python3 -m http.server fix<br/><i>No Retry, it cannot help</i>"]
-    A -->|"no"| B{"HEAD on the bundle<br/>comes back OK?"}
-    B -->|"404"| B1["<b>Shows the URL and status</b><br/><i>Retry offered</i>"]
-    B -->|"never got a hello"| C1["<b>vendor/ was never published</b><br/><i>No Retry</i>"]
-    B -->|"fine"| D["Keep waiting.<br/>Slow line is not a broken site."]
+    A -->|"no"| P{"Did player.html<br/>say hello?"}
+    P -->|"no"| C1["<b>vendor/ was never published</b><br/><i>No Retry</i>"]
+    P -->|"yes"| B{"HEAD on the runtime<br/>and the bundle"}
+    B -->|"a runtime file 404s"| R1["<b>Names that file's full path</b><br/><i>Retry offered</i>"]
+    B -->|"the bundle 404s"| B1["<b>Shows the URL and status</b><br/><i>Retry offered</i>"]
+    B -->|"all present"| D["Keep waiting.<br/>Slow line is not a broken site."]
 
     style A1 fill:#800000,color:#fff
     style B1 fill:#804000,color:#fff
+    style R1 fill:#804000,color:#fff
     style C1 fill:#800000,color:#fff
     style D fill:#008080,color:#fff
 ```
@@ -420,11 +423,14 @@ Three details make that work:
   `e.source === parent`. The `source: 'jsdos-host'` field is a routing tag and
   not a credential, since any sender can type that string.
   `npm run check:origin` holds both halves to account.
-- **js-dos catches its own download failure and only logs it.** No exception,
-  no rejection, nothing to listen for. So the player asks the server the same
-  question itself, but only once the answer is overdue, so a healthy launch
-  never spends the extra request. Only a definitive negative is reported, so a
-  slow line is never mistaken for a broken site.
+- **js-dos catches some of its own download failures and only logs them.** No
+  exception, no rejection, nothing to listen for. So the player asks the server
+  the same questions itself, covering all five runtime files under
+  `vendor/jsdos/emulators/` as well as the bundle. Those requests only go out
+  once the answer is overdue, so a healthy launch never spends them, and only a
+  definitive negative is reported, so a slow line is never mistaken for a
+  broken site. A missing runtime file is named by its full path: js-dos reports
+  it relative to `player.html`, which is not where anyone would go looking.
 
 ---
 
