@@ -62,8 +62,17 @@ const forged = popup ? await popup.evaluate(() => {
 }) : 'no popup';
 await page.waitForTimeout(4000);
 
+// Assert the attempt happened before asserting it failed. Without this, a
+// popup that never got a handle leaves `forged` as an excuse string and the
+// emulator trivially alive — and the check below would report success having
+// never exercised the threat at all. Same false-green as the first version of
+// this file, one layer up.
+const reallySent = forged === 'sent';
+check('the forged message actually reached the frame', reallySent, `postMessage: ${forged}`);
+
 const survived = await isAlive(frame);
-check('a third window\'s "stop" is ignored', survived.alive, `postMessage ${forged}; ${survived.why}`);
+check('a third window\'s "stop" is ignored', reallySent && survived.alive,
+  reallySent ? survived.why : 'no forged message was delivered, so nothing was proved');
 await page.screenshot({ path: `${OUT}/after-forged-stop.png` });
 
 // The control. Without it, "still running" could just mean this check cannot
