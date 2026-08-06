@@ -376,10 +376,18 @@
 
       // The parent pauses a minimized game so it stops burning CPU and audio.
       window.addEventListener('message', function (e) {
-        // See HOST_TARGET: off disk the sender's origin arrives as the opaque
-        // "null", which matches nothing, and the only window that can reach
-        // this frame is the document that framed it.
-        var trusted = OPAQUE_ORIGIN || e.origin === location.origin;
+        // Two independent checks, because neither is sufficient alone.
+        //
+        // Origin: off disk the sender's origin arrives as the opaque "null",
+        // which matches nothing, so there it cannot be the test. See HOST_TARGET.
+        //
+        // Identity: `e.source === parent` is what actually establishes that a
+        // message came from the document that framed this one. The `source`
+        // field below is a routing tag, not a credential — any sender can write
+        // that string — so without this check the origin bypass above would let
+        // any window holding a handle to this frame stop the emulator. The host
+        // has always checked its side this way; this is the matching half.
+        var trusted = (OPAQUE_ORIGIN || e.origin === location.origin) && e.source === parent;
         if (!trusted || !e.data || e.data.source !== 'jsdos-host') return;
         try {
           if (e.data.type === 'pause') dos.setPaused(true);
