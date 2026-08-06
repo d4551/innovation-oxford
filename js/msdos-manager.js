@@ -16,6 +16,13 @@ const DOS_GAMES = {
   civ: { id: 'civ', title: "Sid Meier's Civilization", note: 'MicroProse, 1991', resource: 'games/civ.jsdos' },
   oregon: { id: 'oregon', title: 'The Oregon Trail', note: 'MECC, 1990', resource: 'games/oregon.jsdos' },
 };
+// Opened off disk, this page and its frame each get an opaque origin that no
+// string addresses — Chrome reports `location.origin` as "file://" but
+// postMessage matches against the real one, so targeting it drops the message
+// silently. Both directions fall back to "*", which is safe here because the
+// identity of the frame is checked separately and nothing exchanged is secret.
+// See the matching note in vendor/jsdos/player.html.
+const OPAQUE_ORIGIN = window.location.protocol === 'file:';
 const JSDOS_BASE = 'vendor/jsdos/';
 // js-dos runs inside this frame; see the comment at the top of player.html for
 // why it is not mounted directly in the page.
@@ -39,7 +46,9 @@ class DosGameWindow extends AppWindow {
     this.config = config;
     this.frame = null;
     this.booted = false;
+    this.answered = false;
     this.bootTimer = null;
+    this.helloTimer = null;
     this.onPlayerMessage = (e) => this.handlePlayerMessage(e);
   }
 
@@ -65,6 +74,10 @@ class DosGameWindow extends AppWindow {
 
   run() {
     this.setStatus('Loading DOS environment…');
+    this.booted = false;
+    this.answered = false;
+    clearTimeout(this.bootTimer);
+    clearTimeout(this.helloTimer);
     this.container.replaceChildren();
 
     const frame = document.createElement('iframe');
@@ -81,8 +94,32 @@ class DosGameWindow extends AppWindow {
     this.container.appendChild(frame);
     this.frame = frame;
 
-    // Nothing arrived after a generous wait: report it instead of sitting on a
-    // spinner for ever.
+    // The player greets us as its first act, so silence means the frame loaded
+    // something that is not the player — a 404 page, most often, because the
+    // vendored runtime never reached the server. An iframe fires no `error`
+    // event for an HTTP error status, so the only way to tell that apart from a
+    // slow load is to ask the server directly. Do it once the greeting is
+    // overdue rather than up front: a healthy launch has already answered and
+    // never spends the request.
+    const missingPlayer = `Could not load the DOS player (${JSDOS_PLAYER}). Check that the vendor folder was published with the site.`;
+    this.helloTimer = setTimeout(() => {
+      if (this.answered || this.frame !== frame) return;
+      try {
+        fetch(JSDOS_PLAYER, { method: 'HEAD' }).then(
+          (res) => {
+            if (!res.ok && !this.answered && this.frame === frame) this.showError(missingPlayer, { retryable: false });
+          },
+          () => { /* offline, or off disk where the player diagnoses it better */ },
+        );
+      } catch (_) { /* no fetch here; the backstop below still covers it */ }
+      // Reachable but still silent: something loaded that is not our player.
+      this.helloTimer = setTimeout(() => {
+        if (!this.answered && this.frame === frame) this.showError(missingPlayer, { retryable: false });
+      }, 17000);
+    }, 3000);
+
+    // Loaded, greeted, and still not running after a generous wait. The player
+    // reports its own failures long before this; it is the last backstop.
     this.bootTimer = setTimeout(() => {
       if (!this.booted) this.showError('The DOS player did not start. Try again.');
     }, 90000);
@@ -90,15 +127,32 @@ class DosGameWindow extends AppWindow {
 
   /** Messages from the player frame (same-origin, and identified by source). */
   handlePlayerMessage(e) {
-    if (e.origin !== window.location.origin) return;
+    // Off disk the sender's origin arrives as the opaque "null", which matches
+    // nothing. The frame-identity check below is what actually proves this came
+    // from our player.
+    if (!OPAQUE_ORIGIN && e.origin !== window.location.origin) return;
     if (!e.data || e.data.source !== 'jsdos-player') return;
     if (!this.frame || e.source !== this.frame.contentWindow) return;
 
+    // Any message at all proves the player document itself loaded.
+    this.answered = true;
+    clearTimeout(this.helloTimer);
+
     if (e.data.type === 'error') {
-      this.showError(e.data.detail || 'The DOS player reported an error.');
+      clearTimeout(this.bootTimer);
+      // The player has already worked out what went wrong and whether trying
+      // again could possibly help. Reading the page off disk never gets better.
+      this.showError(e.data.detail || 'The DOS player reported an error.', {
+        retryable: window.location.protocol !== 'file:',
+      });
       return;
     }
-    if (e.data.type === 'event' && (e.data.detail === 'emu-ready' || e.data.detail === 'ci-ready')) {
+    if (e.data.type !== 'event') return;
+    // "emu-ready" only means the player's own UI mounted; the bundle may still
+    // fail to download. "ci-ready" is the game actually running.
+    if (e.data.detail === 'emu-ready') {
+      this.setStatus('Loading game data…');
+    } else if (e.data.detail === 'ci-ready') {
       this.booted = true;
       clearTimeout(this.bootTimer);
       this.setStatus('');
@@ -106,13 +160,21 @@ class DosGameWindow extends AppWindow {
   }
 
   postToPlayer(type) {
+    const target = OPAQUE_ORIGIN ? '*' : window.location.origin;
     try {
-      this.frame?.contentWindow?.postMessage({ source: 'jsdos-host', type }, window.location.origin);
+      this.frame?.contentWindow?.postMessage({ source: 'jsdos-host', type }, target);
     } catch (_) { /* frame gone */ }
   }
 
-  showError(message) {
+  /**
+   * Replace the frame with what went wrong. `retryable` is false for failures
+   * that a second attempt cannot change — offering a button that is certain to
+   * fail again is worse than offering none.
+   */
+  showError(message, { retryable = true } = {}) {
     this.setStatus('');
+    clearTimeout(this.helloTimer);
+    clearTimeout(this.bootTimer);
     this.container.replaceChildren();
     const wrap = document.createElement('div');
     wrap.className = 'dos-error';
@@ -121,18 +183,20 @@ class DosGameWindow extends AppWindow {
       <p class="dos-error__title">DOS player error</p>
       <p class="dos-error__msg"></p>
       <div class="dos-error__actions">
-        <button type="button" class="btn-95" data-act="retry">Retry</button>
+        ${retryable ? '<button type="button" class="btn-95" data-act="retry">Retry</button>' : ''}
         <button type="button" class="btn-95" data-act="close">Close</button>
       </div>
     `;
     wrap.querySelector('.dos-error__msg').textContent = message;
-    wrap.querySelector('[data-act="retry"]').addEventListener('click', () => {
+    wrap.querySelector('[data-act="retry"]')?.addEventListener('click', () => {
       this.booted = false;
-      clearTimeout(this.bootTimer);
+      this.answered = false;
       this.run();
     });
     wrap.querySelector('[data-act="close"]').addEventListener('click', () => this.close());
     this.container.appendChild(wrap);
+    // Announce it: the window may not hold focus when this arrives.
+    wrap.querySelector('[data-act="retry"], [data-act="close"]')?.focus();
   }
 
   onHide() {
@@ -146,6 +210,7 @@ class DosGameWindow extends AppWindow {
 
   onClose() {
     clearTimeout(this.bootTimer);
+    clearTimeout(this.helloTimer);
     window.removeEventListener('message', this.onPlayerMessage);
     // Removing the frame destroys the emulator, its worker, its audio graph and
     // its listeners in one step — a more complete teardown than any API call.

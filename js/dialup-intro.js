@@ -7,6 +7,39 @@
 // someone on the connection screen.
 // ============================================
 
+// The three figures of the connection sequence, drawn rather than typed.
+//
+// These were emoji (🏃 / 🏃💨 / 👥). The app's font stack is a Windows 95
+// one — MS Sans Serif and friends — with nothing behind it that carries
+// colour emoji, so on any machine without a system emoji font the centre of
+// the sign-on screen rendered as three empty boxes. Inline SVG has no font to
+// miss and no file to fetch, and matches how the rest of the app draws its
+// clipart.
+const DIAL_FIGURES = [
+  // Dialling: someone running for the phone.
+  `<svg viewBox="0 0 64 64" role="img" aria-hidden="true" focusable="false">
+     <circle cx="38" cy="12" r="7"/>
+     <path d="M34 21 L44 26 L40 38 L46 52 L40 55 L33 41 L26 47 L20 44 L27 33 L24 24 Z"/>
+     <path d="M44 26 L56 31 L54 36 L41 32 Z"/>
+   </svg>`,
+  // Connecting: the same runner, now with speed lines behind them.
+  `<svg viewBox="0 0 64 64" role="img" aria-hidden="true" focusable="false">
+     <circle cx="42" cy="12" r="7"/>
+     <path d="M38 21 L48 26 L44 38 L50 52 L44 55 L37 41 L30 47 L24 44 L31 33 L28 24 Z"/>
+     <path d="M48 26 L60 31 L58 36 L45 32 Z"/>
+     <rect x="2" y="20" width="18" height="4" rx="2"/>
+     <rect x="6" y="31" width="14" height="4" rx="2"/>
+     <rect x="0" y="42" width="20" height="4" rx="2"/>
+   </svg>`,
+  // Connected: two people, together.
+  `<svg viewBox="0 0 64 64" role="img" aria-hidden="true" focusable="false">
+     <circle cx="22" cy="17" r="9"/>
+     <path d="M22 29 c-9 0 -15 6 -15 14 v9 h30 v-9 c0 -8 -6 -14 -15 -14 Z"/>
+     <circle cx="45" cy="20" r="7"/>
+     <path d="M45 30 c-7 0 -12 5 -12 11 v11 h24 v-11 c0 -6 -5 -11 -12 -11 Z"/>
+   </svg>`,
+];
+
 const MAX_DIALUP_MS = 9000;
 // With no sound to wait for there is nothing to pace against — but the three
 // progress boxes still have to fill before "Connected" appears, or the screen
@@ -125,9 +158,7 @@ class DialupIntro {
           </div>
           <p class="status-message"><span id="dialup-status-text" role="status">Connecting To Oxford Online...</span></p>
           <div class="animation-boxes" aria-hidden="true">
-            <div class="aol-box"><div class="box-emoji">🏃</div></div>
-            <div class="aol-box"><div class="box-emoji">🏃💨</div></div>
-            <div class="aol-box"><div class="box-emoji">👥</div></div>
+            ${DIAL_FIGURES.map((svg) => `<div class="aol-box"><div class="box-figure">${svg}</div></div>`).join('')}
           </div>
           <div class="progress-line" aria-hidden="true"></div>
           <button type="button" class="btn-95 btn-center" data-act="skip">Cancel</button>

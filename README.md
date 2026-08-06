@@ -35,8 +35,15 @@ npx http-server -p 8099 -c-1 .
 # then open http://127.0.0.1:8099
 ```
 
-Opening `index.html` straight off disk mostly works, but the DOS games need a
-real `http(s)://` origin because the emulator loads WebAssembly.
+Opening `index.html` straight off disk mostly works, but the DOS games and all
+the sound do not. A browser refuses to let a `file://` page read other local
+files, so neither the game bundles nor the audio can be fetched. The DOS player
+detects this and says so in the window, with the remedy, rather than spinning.
+
+If you deploy this to GitHub Pages, keep the `.nojekyll` file. Without it Pages
+runs the tree through Jekyll, which drops `vendor` — where the js-dos runtime and
+its WebAssembly emulators live — and every DOS game 404s on a site that worked
+perfectly in local testing.
 
 There is nothing to install and nothing to build. The `tools/` scripts need
 Python 3, and the checks below need Node, but neither is required to *run* the
@@ -219,6 +226,35 @@ are looking at. Measured against a bundle with a missing program, DOSBox's own
 welcome banner scored *higher* on colour and on frame-to-frame change than either
 real game, and its video mode matched Civilization's own text menu. The archive
 is the only thing that can answer the question, so that is what the check reads.
+
+### When a game will not start
+
+The emulator runs in `vendor/jsdos/player.html`, a same-origin frame the host
+talks to over `postMessage`. Three failures used to look identical from the
+outside — a spinner reading "Loading DOS environment…" — and each now names
+itself in the window within a few seconds:
+
+| What happened | What you see |
+| --- | --- |
+| Page opened off disk (`file://`) | The reason, and the `python3 -m http.server` remedy. No Retry: it cannot help. |
+| Bundle missing or 404 | The URL and the status the server returned. Retry offered. |
+| `vendor/` never published | Which file is missing. No Retry. |
+
+Three details make that work, and each was a bug on its own:
+
+- **`ci-ready`, not `emu-ready`, means the game is running.** `emu-ready` fires
+  as soon as the js-dos UI mounts and says nothing about whether the bundle will
+  arrive — treating it as success let a failed download look like a booted game.
+- **`postMessage` has no usable target origin for a `file://` page.** Chrome
+  reports `location.origin` as `"file://"` there, but messages are matched
+  against the document's real origin, which is opaque — so addressing it
+  *silently* drops every message, with a console warning rather than a throw a
+  `try`/`catch` could see. Both directions fall back to `"*"`; authenticity
+  comes from checking the sending window's identity, not the origin string.
+- **js-dos catches its own download failure and only logs it.** No exception, no
+  rejection, nothing to listen for. The player asks the server the same question
+  itself — but only once the answer is overdue, so a healthy launch never spends
+  the extra request, and only a definitive negative is ever reported.
 
 ## Checks
 
