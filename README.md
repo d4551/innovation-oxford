@@ -11,9 +11,6 @@
 ![best viewed in: any browser, actually](.github/badges/best-viewed.svg)
 ![Y2K: compliant](.github/badges/y2k.svg)
 
-<sub>Badges are committed SVGs, not calls out to a badge service. See
-[`tools/build-badges.py`](tools/build-badges.py).</sub>
-
 A playable recreation of a 1999 desktop, running in a browser off static files:
 an AOL-style instant messenger, a mail client, Paint, a media player, an MS-DOS
 prompt, and two honest-to-goodness DOS games.
@@ -205,8 +202,7 @@ stylus take one code path instead of three.
 
 ## Accessibility
 
-Being period-accurate about the look is no excuse for being period-accurate
-about the accessibility.
+The look is period-accurate. The accessibility is not.
 
 - Every control is a real `<button>` with an accessible name, reachable and
   operable by keyboard, with a visible focus ring.
@@ -216,9 +212,8 @@ about the accessibility.
   the front-most window still open, then the Start button. Never `<body>`.
 - Targets meet the WCAG 2.5.8 (AA) 24×24px minimum, and get bigger on
   touch-primary devices.
-- All text meets WCAG 1.4.3 contrast, verified by computing real ratios against
-  the composited background rather than trusting a scan that reports
-  *incomplete* for anything it can't resolve.
+- All text meets WCAG 1.4.3 contrast, measured as real ratios against the
+  composited background.
 - The CRT flicker runs at 0.25Hz, nowhere near the three-per-second limit in
   WCAG 2.3.1, and all decorative motion is removed under
   `prefers-reduced-motion`.
@@ -281,11 +276,10 @@ stateDiagram-v2
     end note
 ```
 
-Adding an app is a subclass, not another copy of the same six methods.
+Adding an app means writing a subclass.
 
 Window visibility is the `.window--hidden` class rather than an inline
-`display`, so the compact layout can own `display` without arm-wrestling inline
-styles written by dragging and resizing.
+`display`, which leaves `display` free for the compact layout to set.
 
 ### Sizing
 
@@ -364,11 +358,8 @@ character.
 
 Run the check every time. A bundle can be perfectly well-formed and still boot
 to nothing but a `C:\>` prompt, because its `[autoexec]` names a program that
-isn't in the archive, and nothing visible in the player tells the two apart.
-Eyeballing it does not work: DOSBox's own welcome banner scores higher on
-colour and on frame-to-frame change than either real game, and its video mode
-matches Civilization's own text menu. The archive is the only thing that can
-answer the question, so the archive is what the check reads.
+isn't in the archive. Nothing visible in the player tells the two apart, so the
+check reads the archive and confirms the program is in there.
 
 ### When a game won't start
 
@@ -463,18 +454,16 @@ Then, fastest to slowest:
 | `npm run check:origin` | The host and player control channel obeys the host and ignores a third window |
 | `npm run check:interact` | The full suite, 211 steps across three viewports |
 
-`npm run check:dos-file` is kept separate because it deliberately opens the
-site over `file://` to prove the DOS player explains itself instead of hanging.
+`npm run check:dos-file` opens the site over `file://` and checks the DOS
+player reports the reason rather than hanging. It is separate from the rest
+because it needs no server.
 
 Screenshots land in `checks/out/`, which is git-ignored. `BASE` overrides the
 server URL, so the same checks run against a deploy:
 `BASE=https://example.com npm run check:audit`.
 
-The browser is not configurable, on purpose. These checks assert on pixels:
-contrast ratios, what the emulator drew, whether a control is covered by
-something else. Pointed at a build that doesn't match the installed Playwright,
-those numbers look authoritative while meaning nothing. Playwright is pinned
-and the browser comes with it.
+Playwright is pinned, and the browser it installs is the one the checks use.
+There is no setting for pointing them at a different build.
 
 Past the first two, the site is verified by driving a real browser: headed
 Chromium, real mouse, real touch events, real keystrokes, never scripted calls
@@ -503,18 +492,14 @@ At 1440×900, 820×1180 and 390×844:
 Zero failures, zero visual defects, zero console errors, zero horizontal
 overflow, zero axe violations.
 
-**House rule: a check that guards a fix is run against the unfixed code and
-confirmed to go red.** A check agreeing with itself proves nothing.
-`check:origin` carries that control inline: alongside asserting that a forged
-`stop` is ignored, it asserts that the host's own `stop` does kill the
-emulator, because "still running" is worthless evidence from a check that
-cannot detect a stop at all.
+Each check that guards a fix is also run against the unfixed code and confirmed
+to fail there. Several carry that control inline: `check:origin` asserts both
+that a forged `stop` is ignored and that the host's own `stop` is obeyed.
 
-Only Chromium is available in the environment those runs happen in, so Firefox
-and Safari are not exercised automatically. Nothing in the code is
-engine-specific, and the APIs it uses (Pointer Events, `dvh`, `env()`,
-`matchMedia`, `:focus-visible`, `inert`) are supported across every current
-engine, but that is reasoning rather than evidence.
+Firefox and Safari are not exercised automatically, since only Chromium is
+available where these run. The APIs the site uses (Pointer Events, `dvh`,
+`env()`, `matchMedia`, `:focus-visible`, `inert`) are supported across every
+current engine.
 
 ---
 
@@ -536,8 +521,7 @@ engine, but that is reasoning rather than evidence.
 
 Everything is vendored under `vendor/`. There are **no runtime requests to any
 third party**, so the site works offline, behind a firewall, with an ad-blocker
-running, and doesn't so much as flinch when somebody's CDN falls over. No SRI
-hashes to rotate, and nobody out there watching who visits.
+running, and doesn't so much as flinch when somebody's CDN falls over.
 
 | Asset | Version |
 |---|---|
