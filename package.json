@@ -1,0 +1,28 @@
+{
+  "name": "innovation-oxford",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A playable recreation of a 1999 desktop, as a static site with no build step.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "serve": "http-server -p 8099 -c-1 --silent .",
+    "lint": "eslint js/ main.js checks/",
+    "check:bundles": "python3 tools/check-jsdos-bundles.py",
+    "check:interact": "node checks/interact.mjs",
+    "check:audit": "node checks/audit.mjs",
+    "check:play": "node checks/play.mjs",
+    "check:axe": "node checks/axe.mjs && node checks/axe-dos.mjs",
+    "check:keyboard": "node checks/keyboard.mjs",
+    "check:dialup": "node checks/dialup.mjs && node checks/figures.mjs && node checks/midfill3.mjs",
+    "check:dos": "node checks/doshard.mjs && node checks/dosbroken.mjs",
+    "check:dos-file": "node checks/dosfile.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.10.2",
+    "eslint": "^9.17.0",
+    "http-server": "^14.1.1",
+    "playwright": "1.56.1",
+    "pngjs": "^7.0.0"
+  }
+}

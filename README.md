@@ -45,9 +45,10 @@ runs the tree through Jekyll, which drops `vendor` — where the js-dos runtime 
 its WebAssembly emulators live — and every DOS game 404s on a site that worked
 perfectly in local testing.
 
-There is nothing to install and nothing to build. The `tools/` scripts need
-Python 3, and the checks below need Node, but neither is required to *run* the
-site.
+There is nothing to install and nothing to build. The `package.json` exists only
+for the checks; the site ships no dependency of its own and loads nothing at
+runtime that is not in this repository. The `tools/` scripts need Python 3 and
+the checks need Node, but neither is required to *run* the site.
 
 ## What's in it
 
@@ -258,12 +259,42 @@ Three details make that work, and each was a bug on its own:
 
 ## Checks
 
+The site itself has no dependencies and no build. The checks do, so they live
+behind a `package.json` that the site never touches:
+
 ```sh
-npx eslint js/ main.js               # config in eslint.config.mjs
-python3 tools/check-jsdos-bundles.py # each bundle starts the program it names
+npm install                  # playwright, axe-core, pngjs, eslint, http-server
+npx playwright install chromium
+npm run serve                # http://127.0.0.1:8099, in another shell
 ```
 
-Beyond those two, the site is verified by driving a real browser — headed
+Then, from fastest to slowest:
+
+| Command | What it covers |
+| --- | --- |
+| `npm run lint` | ESLint over `js/`, `main.js` and `checks/` |
+| `npm run check:bundles` | Each bundle starts the program it names (no browser needed) |
+| `npm run check:dialup` | Sign-on with and without audio; the three figures are drawn and stay legible through the fill |
+| `npm run check:dos` | Both games boot, take keystrokes, minimize, restore, relaunch; all three failure modes report correctly |
+| `npm run check:axe` | axe-core over the whole site and inside the DOS player |
+| `npm run check:keyboard` | Keyboard-only pass, checking where focus lands |
+| `npm run check:play` | Fifteen scenarios driven end to end as a person would |
+| `npm run check:audit` | Visual probes, tap targets, contrast and overflow at three viewports |
+| `npm run check:interact` | The full suite — 211 steps across three viewports |
+
+`npm run check:dos-file` is separate because it deliberately opens the site over
+`file://` to prove the DOS player explains itself there rather than hanging.
+
+Screenshots land in `checks/out/`, which is git-ignored. `BASE` overrides the
+server URL, so the same checks run against a deploy:
+`BASE=https://example.com npm run check:audit`.
+
+The browser is not configurable. These checks assert on pixels — contrast
+ratios, what the emulator drew, whether a control is covered — and against a
+build that does not match the installed Playwright those numbers would look
+authoritative while meaning nothing.
+
+Beyond the first two, the site is verified by driving a real browser — headed
 Chromium, real mouse, real touch events and real keystrokes, never scripted
 calls into the page. JavaScript is used only to *read* state back for assertions.
 
