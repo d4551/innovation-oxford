@@ -2,14 +2,18 @@
 
 <!-- Under construction. Please sign the guestbook. -->
 
-![No build step](https://img.shields.io/badge/build%20step-none%20whatsoever-brightgreen?style=flat-square)
-![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-0-blue?style=flat-square)
-![First load](https://img.shields.io/badge/first%20load-306KB-orange?style=flat-square)
-![Checks](https://img.shields.io/badge/checks-211%20steps%20across%203%20viewports-success?style=flat-square)
-![axe violations](https://img.shields.io/badge/axe%20violations-0-success?style=flat-square)
-![WCAG](https://img.shields.io/badge/WCAG-2.2%20AA-blueviolet?style=flat-square)
-![Best viewed in](https://img.shields.io/badge/best%20viewed%20in-any%20browser%2C%20actually-lightgrey?style=flat-square)
-![Y2K](https://img.shields.io/badge/Y2K-compliant-9cf?style=flat-square)
+![build step: none whatsoever](.github/badges/build-step.svg)
+![runtime deps: 0](.github/badges/runtime-deps.svg)
+![first load: 306KB](.github/badges/first-load.svg)
+![checks: 211 steps across 3 viewports](.github/badges/checks.svg)
+![axe violations: 0](.github/badges/axe.svg)
+![WCAG: 2.2 AA](.github/badges/wcag.svg)
+![best viewed in: any browser, actually](.github/badges/best-viewed.svg)
+![Y2K: compliant](.github/badges/y2k.svg)
+
+<sub>Badges are committed SVGs, not calls to a badge service — see
+[`tools/build-badges.py`](tools/build-badges.py). A README that boasts about
+making no third-party requests should not open with eight of them.</sub>
 
 A playable recreation of a 1999 desktop: an AOL-style instant messenger, mail
 client, Paint, media player, MS-DOS prompt and two real DOS games — all running
@@ -225,7 +229,7 @@ about the accessibility.
   `prefers-reduced-motion`.
 - Live regions announce chat messages, mail status, player state and terminal
   output.
-- `prefers-contrast: more` and a print stylesheet both supported.
+- `prefers-contrast: more` and a print stylesheet are both supported.
 
 Two pieces of third-party UI that a visitor actually touches get held to the same
 bar as everything else:

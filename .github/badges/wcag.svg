@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="106" height="20" role="img" aria-label="WCAG: 2.2 AA">
+  <title>WCAG: 2.2 AA</title>
+  <g shape-rendering="crispEdges">
+    <rect width="46" height="20" fill="#555555"/>
+    <rect x="46" width="60" height="20" fill="#8a2be2"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="23.0" y="14">WCAG</text>
+    <text x="76.0" y="14">2.2 AA</text>
+  </g>
+</svg>
