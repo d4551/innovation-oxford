@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="126" height="20" role="img" aria-label="runtime deps: 0">
+  <title>runtime deps: 0</title>
+  <g shape-rendering="crispEdges">
+    <rect width="99" height="20" fill="#555555"/>
+    <rect x="99" width="27" height="20" fill="#0366d6"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="49.5" y="14">runtime deps</text>
+    <text x="112.5" y="14">0</text>
+  </g>
+</svg>
