@@ -129,13 +129,44 @@
         setStatus(message);
         post('error', message);
       }
+      // Every file js-dos loads from pathPrefix: the loader, DOSBox itself, and
+      // the zip library it reads bundles with. If any one of these is not on
+      // the server then no game can start, and no amount of waiting helps. The
+      // list is the whole set on purpose, since whichever one is missing is the
+      // one the reader needs named.
+      var RUNTIME = [
+        'emulators/emulators.js',
+        'emulators/wdosbox.js',
+        'emulators/wdosbox.wasm',
+        'emulators/wlibzip.js',
+        'emulators/wlibzip.wasm',
+      ];
+
+      /** Say which file is missing, in a path the reader can go and look for. */
+      function missingFile(url, status) {
+        var full = url;
+        try { full = new URL(url, location.href).pathname; } catch (e) { /* keep it as given */ }
+        return 'The DOS runtime is incomplete: the server returned ' + (status || 'an error')
+          + ' for ' + full + '. Check that the whole vendor folder was published with the site.';
+      }
+
       function diagnose(raw) {
         var text = raw ? String(raw) : '';
         if (FROM_DISK) return DISK_HELP;
+        // js-dos reports a missing runtime file as
+        // "Unable to download 'emulators/wdosbox.js', code: 404". The path is
+        // relative to this document, which is not where anyone will go looking
+        // for it. This has to come before the checks below: the filename ends
+        // in .wasm, and a looser test further down used to read that as a
+        // WebAssembly failure and blame the browser for a missing file.
+        var missing = text.match(/Unable to download '([^']+)'(?:[^0-9]*(\d{3}))?/i);
+        if (missing) return missingFile(missing[1], missing[2]);
         if (/failed to fetch|networkerror|load failed|err_/i.test(text)) {
           return 'Could not download the game data. Check the connection and try again.';
         }
-        if (/webassembly|wasm/i.test(text)) {
+        // Deliberately not /wasm/: that matches every filename in the runtime.
+        // Only a real compile or instantiate failure belongs here.
+        if (/WebAssembly|CompileError|LinkError|Aborted\(/i.test(text)) {
           return 'This browser could not start the DOS emulator (WebAssembly failed to load).';
         }
         return text || 'Could not start the DOS player.';
@@ -156,25 +187,31 @@
         return;
       }
 
-      // js-dos catches its own download failure and only logs it, so neither
-      // the try/catch below nor the rejection handler above ever sees one — the
-      // frame would simply sit there. Ask the server the same question it just
-      // asked, but only once the answer is overdue: a healthy launch is running
-      // long before this and never spends the request, while a broken one gets
-      // a real reason instead of a minute of spinner. Reports only on a
-      // definitive negative, so a slow download is never mistaken for a failure.
-      setTimeout(function probeBundle() {
+      // js-dos catches some of its own download failures and only logs them, so
+      // neither the try/catch below nor the handlers above ever see one and the
+      // frame just sits there. Ask the server the same questions it just asked,
+      // but only once the answer is overdue: a healthy launch is running long
+      // before this and never spends the requests, while a broken one gets a
+      // real reason instead of a minute of spinner. Only a definitive negative
+      // is reported, so a slow download is never mistaken for a failure.
+      setTimeout(function probe() {
         if (settled) return;
-        try {
-          fetch(bundle, { method: 'HEAD' }).then(
-            function (res) {
-              if (!res.ok) fail('Could not download the game data: the server answered ' + res.status + ' for ' + bundle + '.');
-            },
-            function (err) { fail(diagnose((err && err.message) || '')); }
-          );
-        } catch (err) {
-          fail(diagnose((err && err.message) || ''));
-        }
+        var checks = RUNTIME.concat([bundle]);
+        checks.forEach(function (url) {
+          try {
+            fetch(url, { method: 'HEAD' }).then(
+              function (res) {
+                if (res.ok || settled) return;
+                fail(url === bundle
+                  ? 'Could not download the game data: the server answered ' + res.status + ' for ' + bundle + '.'
+                  : missingFile(url, res.status));
+              },
+              function (err) { fail(diagnose((err && err.message) || '')); }
+            );
+          } catch (err) {
+            fail(diagnose((err && err.message) || ''));
+          }
+        });
       }, 5000);
 
       try {
