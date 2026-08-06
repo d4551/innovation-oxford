@@ -250,8 +250,18 @@ Three details make that work, and each was a bug on its own:
   reports `location.origin` as `"file://"` there, but messages are matched
   against the document's real origin, which is opaque — so addressing it
   *silently* drops every message, with a console warning rather than a throw a
-  `try`/`catch` could see. Both directions fall back to `"*"`; authenticity
-  comes from checking the sending window's identity, not the origin string.
+  `try`/`catch` could see. Both directions fall back to `"*"`, and authenticity
+  comes from `e.source` — the identity of the sending window — rather than the
+  origin string.
+
+  Both directions have to check it, which was not true at first. The host had
+  always verified `e.source === frame.contentWindow`; the player checked only
+  the origin, which the fallback above makes unconditionally true off disk. Its
+  `source: 'jsdos-host'` field is a routing tag, not a credential — any sender
+  can write that string — so until the player also checked `e.source === parent`,
+  any window holding a handle to the frame could stop the emulator. `npm run
+  check:origin` holds both halves to that, and is verified to fail against a
+  player with the check removed.
 - **js-dos catches its own download failure and only logs it.** No exception, no
   rejection, nothing to listen for. The player asks the server the same question
   itself — but only once the answer is overdue, so a healthy launch never spends
@@ -280,6 +290,7 @@ Then, from fastest to slowest:
 | `npm run check:keyboard` | Keyboard-only pass, checking where focus lands |
 | `npm run check:play` | Fifteen scenarios driven end to end as a person would |
 | `npm run check:audit` | Visual probes, tap targets, contrast and overflow at three viewports |
+| `npm run check:origin` | The host↔player control channel obeys the host and ignores a third window |
 | `npm run check:interact` | The full suite — 211 steps across three viewports |
 
 `npm run check:dos-file` is separate because it deliberately opens the site over

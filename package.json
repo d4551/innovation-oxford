@@ -16,7 +16,8 @@
     "check:keyboard": "node checks/keyboard.mjs",
     "check:dialup": "node checks/dialup.mjs && node checks/figures.mjs && node checks/midfill3.mjs",
     "check:dos": "node checks/doshard.mjs && node checks/dosbroken.mjs",
-    "check:dos-file": "node checks/dosfile.mjs"
+    "check:dos-file": "node checks/dosfile.mjs",
+    "check:origin": "node checks/dosorigin.mjs"
   },
   "devDependencies": {
     "axe-core": "^4.10.2",
