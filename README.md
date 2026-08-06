@@ -425,10 +425,10 @@ Three details make that work:
   `try`/`catch` never sees it. Both directions fall back to `"*"`, and
   authenticity comes from `e.source`, the identity of the sending window,
   rather than the origin string. Both sides check it: the host verifies
-  `e.source === frame.contentWindow`, the player verifies `e.source ===
-  parent`. The `source: 'jsdos-host'` field is a routing tag, not a credential,
-  since any sender can type that string. `npm run check:origin` holds both
-  halves to account.
+  `e.source === frame.contentWindow`, and the player verifies
+  `e.source === parent`. The `source: 'jsdos-host'` field is a routing tag and
+  not a credential, since any sender can type that string.
+  `npm run check:origin` holds both halves to account.
 - **js-dos catches its own download failure and only logs it.** No exception,
   no rejection, nothing to listen for. So the player asks the server the same
   question itself, but only once the answer is overdue, so a healthy launch
