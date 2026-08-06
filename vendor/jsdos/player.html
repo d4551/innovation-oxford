@@ -79,8 +79,21 @@
       var statusEl = document.getElementById('status');
       var dos = null;
 
+      // A document opened off disk has an opaque origin, and there is no string
+      // that addresses it. Chrome reports `location.origin` as "file://" here,
+      // but postMessage matches against the real origin — so targeting it
+      // silently drops the message, with a console warning rather than a throw
+      // that a try/catch could see. That is why this frame's explanations of
+      // what went wrong never reached the host.
+      //
+      // "*" is the only workable target. Authenticity does not rest on it: the
+      // host checks the message came from this exact frame's window, which no
+      // other page can forge, and nothing here is a secret.
+      var OPAQUE_ORIGIN = location.protocol === 'file:';
+      var HOST_TARGET = OPAQUE_ORIGIN ? '*' : location.origin;
+
       function post(type, detail) {
-        try { parent.postMessage({ source: 'jsdos-player', type: type, detail: detail || null }, location.origin); }
+        try { parent.postMessage({ source: 'jsdos-player', type: type, detail: detail || null }, HOST_TARGET); }
         catch (e) { /* parent gone */ }
       }
       function setStatus(text) {
@@ -88,11 +101,81 @@
         statusEl.hidden = !text;
       }
 
+      // Tell the host this document is alive before anything else can go wrong.
+      // If the host never hears it, the frame loaded something that is not this
+      // player — a 404 page, most likely — which no amount of waiting will fix.
+      post('hello');
+
+      // Opened straight off disk, a browser refuses to let one local file read
+      // another, so the emulator can never fetch its bundle. Some builds and
+      // flags do allow it, so this is a diagnosis and not a gate: let it try,
+      // and if it fails, explain the real reason instead of "Failed to fetch".
+      var FROM_DISK = location.protocol === 'file:';
+      var DISK_HELP = 'This page was opened from a file on disk, and browsers block a local page '
+        + 'from reading other local files — so the game data can never load. Serve the folder over '
+        + 'HTTP instead: run "python3 -m http.server" in the project folder and open '
+        + 'http://localhost:8000/.';
+
+      // Everything js-dos does after Dos() returns — downloading the bundle,
+      // compiling the WebAssembly, starting the worker — is asynchronous, so
+      // the try/catch below cannot see any of it. Without these two listeners a
+      // failed download is a silent spinner until the host's backstop fires.
+      var settled = false;
+      var watchdog = null;
+      function fail(message) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        setStatus(message);
+        post('error', message);
+      }
+      function diagnose(raw) {
+        var text = raw ? String(raw) : '';
+        if (FROM_DISK) return DISK_HELP;
+        if (/failed to fetch|networkerror|load failed|err_/i.test(text)) {
+          return 'Could not download the game data. Check the connection and try again.';
+        }
+        if (/webassembly|wasm/i.test(text)) {
+          return 'This browser could not start the DOS emulator (WebAssembly failed to load).';
+        }
+        return text || 'Could not start the DOS player.';
+      }
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e && e.reason;
+        fail(diagnose((r && r.message) || r));
+      });
+      window.addEventListener('error', function (e) {
+        if (e && e.message) fail(diagnose(e.message));
+      });
+      // Neither an exception nor a rejection, and still not running: say so
+      // rather than leaving the spinner to the host's much longer backstop.
+      watchdog = setTimeout(function () { fail(diagnose('')); }, 60000);
+
       if (!bundle) {
-        setStatus('No game bundle specified.');
-        post('error', 'No game bundle specified.');
+        fail('No game bundle specified.');
         return;
       }
+
+      // js-dos catches its own download failure and only logs it, so neither
+      // the try/catch below nor the rejection handler above ever sees one — the
+      // frame would simply sit there. Ask the server the same question it just
+      // asked, but only once the answer is overdue: a healthy launch is running
+      // long before this and never spends the request, while a broken one gets
+      // a real reason instead of a minute of spinner. Reports only on a
+      // definitive negative, so a slow download is never mistaken for a failure.
+      setTimeout(function probeBundle() {
+        if (settled) return;
+        try {
+          fetch(bundle, { method: 'HEAD' }).then(
+            function (res) {
+              if (!res.ok) fail('Could not download the game data: the server answered ' + res.status + ' for ' + bundle + '.');
+            },
+            function (err) { fail(diagnose((err && err.message) || '')); }
+          );
+        } catch (err) {
+          fail(diagnose((err && err.message) || ''));
+        }
+      }, 5000);
 
       try {
         dos = Dos(document.getElementById('player'), {
@@ -117,13 +200,22 @@
           imageRendering: 'pixelated',
           theme: 'light',
           onEvent: function (event) {
-            if (event === 'emu-ready' || event === 'ci-ready') setStatus('');
+            // Only "ci-ready" means the game is actually running. "emu-ready"
+            // fires as soon as the js-dos UI mounts and says nothing about
+            // whether the bundle will ever arrive — treating it as success is
+            // what let a failed download masquerade as a booted game.
+            if (event === 'ci-ready') {
+              settled = true;
+              clearTimeout(watchdog);
+              setStatus('');
+            } else if (event === 'emu-ready') {
+              setStatus('Loading game data…');
+            }
             post('event', event);
           },
         });
       } catch (err) {
-        setStatus('Could not start the DOS player.');
-        post('error', (err && err.message) || 'Could not start the DOS player.');
+        fail(diagnose((err && err.message) || ''));
         return;
       }
 
@@ -284,7 +376,11 @@
 
       // The parent pauses a minimized game so it stops burning CPU and audio.
       window.addEventListener('message', function (e) {
-        if (e.origin !== location.origin || !e.data || e.data.source !== 'jsdos-host') return;
+        // See HOST_TARGET: off disk the sender's origin arrives as the opaque
+        // "null", which matches nothing, and the only window that can reach
+        // this frame is the document that framed it.
+        var trusted = OPAQUE_ORIGIN || e.origin === location.origin;
+        if (!trusted || !e.data || e.data.source !== 'jsdos-host') return;
         try {
           if (e.data.type === 'pause') dos.setPaused(true);
           else if (e.data.type === 'resume') dos.setPaused(false);

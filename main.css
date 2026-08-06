@@ -1471,7 +1471,10 @@ img, svg, video, canvas { max-width: 100%; }
 /* Animation boxes for connection sequence */
 .aol-box {
   width: 140px;
-  height: 140px;
+  /* Three of these do not fit a phone at full width, so flex shrinks them. A
+     fixed height would then leave each box taller than it is wide; deriving the
+     height keeps them square at whatever width they end up with. */
+  aspect-ratio: 1;
   background: #e6e6fa;
   border: 3px solid #000080;
   display: flex;
@@ -1497,12 +1500,33 @@ img, svg, video, canvas { max-width: 100%; }
   height: 100%;
 }
 
-.box-emoji {
+/* The connection figures. Drawn as inline SVG rather than set as emoji: the
+   font stack this app uses is a Windows 95 one, and on a machine with no
+   system emoji font behind it these were three empty boxes.
+   The figure stays navy in both states rather than inverting with the box. The
+   box fills top-to-bottom over three seconds, so mid-fill a figure straddles
+   lavender above and blue below — no single colour can invert correctly against
+   both, and flipping on the class change leaves white-on-lavender for the whole
+   three seconds. Navy clears 1.4.11 on either background (13.1:1 unfilled,
+   3.3:1 against the lightest blue), and the white outline separates it from the
+   gradient once the box is full. */
+.box-figure {
   position: relative;
   z-index: 2;
-  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
-  transform: scaleX(-1);
-  font-size: 60px;
+  /* Proportional to the box, which shrinks on a phone — a fixed size would
+     crowd the border there. */
+  width: 55%;
+  aspect-ratio: 1;
+}
+.box-figure svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  fill: #000080;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  /* Stroke behind fill, so the outline haloes the shape instead of eating it. */
+  paint-order: stroke fill;
 }
 
 /* Progress line */
@@ -2068,9 +2092,21 @@ img, svg, video, canvas { max-width: 100%; }
   padding: 12px;
   background: #000;
   z-index: 3;
+  /* A diagnosis long enough to be useful must not push the buttons out of a
+     small window. Scroll the panel rather than clip the way out of it. */
+  overflow: auto;
+  gap: 8px;
 }
-.dos-error__title { margin-bottom: 8px; }
-.dos-error__msg { color: #ff8080; margin-bottom: 10px; white-space: pre-line; }
+.dos-error__title { margin: 0; }
+.dos-error__msg {
+  color: #ff8080;
+  margin: 0;
+  white-space: pre-line;
+  max-width: 46em;
+  /* Long URLs and paths belong in these messages and must not force the panel
+     wider than the window. */
+  overflow-wrap: anywhere;
+}
 .dos-error__actions { display: flex; gap: 8px; justify-content: center; }
 
 /* Internet Explorer chrome */

@@ -1,0 +1,7 @@
+This is a plain static site with no Jekyll content, so GitHub Pages should
+publish the tree exactly as committed rather than running it through a build.
+
+Without this file Pages runs Jekyll, which drops paths it considers its own —
+anything under a leading underscore, and `vendor`, where the js-dos runtime and
+its WebAssembly emulators live. A missing `vendor/jsdos/player.html` breaks
+every DOS game on the deployed site while working perfectly in local testing.
